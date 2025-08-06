@@ -1,0 +1,49 @@
+[
+  {
+    "Jobsite": "Sample Project",
+    "occupancy": "Single Family",
+    "company": {}
+  },
+  {
+    "location": "1st Floor",
+    "rooms": [
+      {
+        "name": "Living Room",
+        "material": {
+          "Floor": "Hardwood",
+          "wall": "Drywall",
+          "ceiling": "Drywall",
+          "Baseboard": "Wood",
+          "Quarter Round": "Wood"
+        },
+        "work_scope": {
+          "Flooring": "Remove & Replace",
+          "Wall": "Paint",
+          "Ceiling": "Paint",
+          "Baseboard": "Remove & Replace",
+          "Quarter Round": "Install New",
+          "Paint Scope": "Full Room"
+        },
+        "measurements": {
+          "height": 9.00,
+          "wall_area_sqft": 400.00,
+          "ceiling_area_sqft": 200.00,
+          "floor_area_sqft": 200.00,
+          "walls_and_ceiling_area_sqft": 600.00,
+          "flooring_area_sy": 22.22,
+          "ceiling_perimeter_lf": 60.00,
+          "floor_perimeter_lf": 60.00,
+          "openings": []
+        },
+        "demo_scope(already demo'd)": {
+          "Ceiling Drywall(sq_ft)": 50,
+          "Wall Drywall(sq_ft)": 100
+        },
+        "additional_notes": {
+          "protection": ["Floor protection required"],
+          "detach_reset": ["Light fixtures", "Ceiling fans"]
+        }
+      }
+    ]
+  }
+]

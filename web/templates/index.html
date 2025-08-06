@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reconstruction Estimator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .main-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .card-header {
+            background: #4a5568;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .card-body {
+            padding: 30px;
+        }
+        
+        .upload-section {
+            border: 2px dashed #cbd5e0;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-section:hover {
+            border-color: #667eea;
+            background-color: #f8fafc;
+        }
+        
+        .upload-section.dragover {
+            border-color: #667eea;
+            background-color: #edf2f7;
+        }
+        
+        .file-input {
+            margin: 20px 0;
+        }
+        
+        .file-input input[type="file"] {
+            display: none;
+        }
+        
+        .file-label {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .file-label:hover {
+            background: #5a67d8;
+        }
+        
+        .model-selection {
+            margin-bottom: 30px;
+        }
+        
+        .model-selection h3 {
+            margin-bottom: 15px;
+            color: #4a5568;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+        
+        .process-button {
+            width: 100%;
+            padding: 15px;
+            background: #48bb78;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .process-button:hover {
+            background: #38a169;
+        }
+        
+        .process-button:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+        }
+        
+        .results-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .results-section.show {
+            display: block;
+        }
+        
+        .confidence-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .confidence-high {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .confidence-medium {
+            background: #feebc8;
+            color: #744210;
+        }
+        
+        .confidence-low {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            background: #fed7d7;
+            color: #742a2a;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+        
+        .success-message {
+            background: #c6f6d5;
+            color: #22543d;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Reconstruction Estimator</h1>
+            <p>Multi-model AI system for residential reconstruction estimates</p>
+        </div>
+        
+        <div class="main-card">
+            <div class="card-header">
+                <h2>Upload Project Data</h2>
+            </div>
+            
+            <div class="card-body">
+                <div class="upload-section" id="uploadSection">
+                    <div id="uploadPrompt">
+                        <h3>Drop JSON file here or click to browse</h3>
+                        <p>Upload your reconstruction project JSON data</p>
+                        <div class="file-input">
+                            <input type="file" id="fileInput" accept=".json" />
+                            <label for="fileInput" class="file-label">Choose File</label>
+                        </div>
+                    </div>
+                    <div id="fileInfo" style="display: none;">
+                        <h4 id="fileName"></h4>
+                        <p id="fileSize"></p>
+                    </div>
+                </div>
+                
+                <div class="model-selection">
+                    <h3>Select AI Models</h3>
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="gpt4" value="gpt4" checked />
+                            <label for="gpt4">GPT-4 (계산 정확도)</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="claude" value="claude" checked />
+                            <label for="claude">Claude (리스크 고려)</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="gemini" value="gemini" checked />
+                            <label for="gemini">Gemini (시장 정보)</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="process-button" id="processButton" onclick="processEstimate()">
+                    Generate Estimate
+                </button>
+                
+                <div id="loadingSection" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Processing with multiple AI models...</p>
+                </div>
+                
+                <div id="resultsSection" class="results-section">
+                    <h3>Merged Results</h3>
+                    <div id="resultsContent"></div>
+                </div>
+                
+                <div id="errorSection" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let uploadedData = null;
+        
+        // 파일 업로드 처리
+        const fileInput = document.getElementById('fileInput');
+        const uploadSection = document.getElementById('uploadSection');
+        const uploadPrompt = document.getElementById('uploadPrompt');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        
+        fileInput.addEventListener('change', handleFileSelect);
+        
+        // 드래그 앤 드롭
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        });
+        
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragover');
+        });
+        
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+        
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+        
+        async function handleFile(file) {
+            if (!file.name.endsWith('.json')) {
+                showError('Please select a JSON file');
+                return;
+            }
+            
+            try {
+                const text = await file.text();
+                uploadedData = JSON.parse(text);
+                
+                // 파일 정보 표시
+                fileName.textContent = file.name;
+                fileSize.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+                uploadPrompt.style.display = 'none';
+                fileInfo.style.display = 'block';
+                
+                showSuccess('JSON file loaded successfully');
+                
+            } catch (error) {
+                showError('Invalid JSON file: ' + error.message);
+                uploadedData = null;
+            }
+        }
+        
+        async function processEstimate() {
+            if (!uploadedData) {
+                showError('Please upload a JSON file first');
+                return;
+            }
+            
+            const selectedModels = getSelectedModels();
+            if (selectedModels.length === 0) {
+                showError('Please select at least one AI model');
+                return;
+            }
+            
+            // UI 업데이트
+            const processButton = document.getElementById('processButton');
+            const loadingSection = document.getElementById('loadingSection');
+            const resultsSection = document.getElementById('resultsSection');
+            
+            processButton.disabled = true;
+            loadingSection.style.display = 'block';
+            resultsSection.classList.remove('show');
+            hideMessages();
+            
+            try {
+                const response = await fetch('/api/estimate/merge', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        json_data: uploadedData,
+                        models_to_use: selectedModels
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayResults(result);
+                } else {
+                    showError(result.error_message || 'Processing failed');
+                }
+                
+            } catch (error) {
+                showError('Network error: ' + error.message);
+            } finally {
+                processButton.disabled = false;
+                loadingSection.style.display = 'none';
+            }
+        }
+        
+        function getSelectedModels() {
+            const checkboxes = document.querySelectorAll('.checkbox-item input[type="checkbox"]:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+        
+        function displayResults(result) {
+            const resultsContent = document.getElementById('resultsContent');
+            const confidence = result.confidence_score;
+            
+            let confidenceClass = 'confidence-low';
+            let confidenceText = 'Low';
+            
+            if (confidence >= 0.8) {
+                confidenceClass = 'confidence-high';
+                confidenceText = 'High';
+            } else if (confidence >= 0.6) {
+                confidenceClass = 'confidence-medium';
+                confidenceText = 'Medium';
+            }
+            
+            resultsContent.innerHTML = `
+                <div style="margin-bottom: 20px;">
+                    <span class="confidence-badge ${confidenceClass}">
+                        Confidence: ${confidenceText} (${(confidence * 100).toFixed(1)}%)
+                    </span>
+                </div>
+                
+                <h4>Processing Details:</h4>
+                <ul>
+                    <li>Models used: ${result.metadata.models_used.join(', ')}</li>
+                    <li>Processing time: ${result.metadata.processing_time}</li>
+                    <li>Deviation level: ${result.metadata.deviation_level}</li>
+                </ul>
+                
+                <h4>Merged Estimate:</h4>
+                <pre style="background: #f1f5f9; padding: 15px; border-radius: 6px; overflow-x: auto;">
+${JSON.stringify(result.merged_result, null, 2)}
+                </pre>
+            `;
+            
+            document.getElementById('resultsSection').classList.add('show');
+        }
+        
+        function showError(message) {
+            const errorSection = document.getElementById('errorSection');
+            errorSection.innerHTML = `<div class="error-message">${message}</div>`;
+            errorSection.style.display = 'block';
+        }
+        
+        function showSuccess(message) {
+            const errorSection = document.getElementById('errorSection');
+            errorSection.innerHTML = `<div class="success-message">${message}</div>`;
+            errorSection.style.display = 'block';
+        }
+        
+        function hideMessages() {
+            document.getElementById('errorSection').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

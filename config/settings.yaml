@@ -1,0 +1,21 @@
+# Model Configuration
+model_weights:
+  gpt4: 0.35
+  claude: 0.35
+  gemini: 0.30
+
+# Deviation Thresholds
+deviation_thresholds:
+  quantity: 0.10      # 수량 편차 10%
+  labor: 0.20         # 인건비 편차 20%
+  timeline: 0.15      # 공기 편차 15%
+
+# Safety Margins
+safety_margins:
+  low_variance: 0.05  # 낮은 분산시 5%
+  high_variance: 0.10 # 높은 분산시 10%
+
+# Consensus Rules
+consensus:
+  minimum_agreement: 2  # 최소 2개 모델 합의
+  outlier_threshold: 3  # 3 시그마 룰
