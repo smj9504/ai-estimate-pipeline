@@ -4,7 +4,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import json
 import os
 from pathlib import Path
@@ -14,8 +14,12 @@ from src.models.model_interface import ModelOrchestrator
 from src.processors.result_merger import ResultMerger
 from src.validators.estimation_validator import ComprehensiveValidator
 from src.models.data_models import ProjectData
+from src.phases.phase_manager import PhaseManager
 
-app = FastAPI(title="Reconstruction Estimator", version="1.0.0")
+app = FastAPI(title="Reconstruction Estimator", version="2.0.0")
+
+# Phase Manager 인스턴스 (전역)
+phase_manager = PhaseManager()
 
 # 템플릿과 정적 파일 설정
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -30,6 +34,19 @@ except Exception:
 class EstimateRequest(BaseModel):
     json_data: Dict[str, Any]
     models_to_use: List[str] = ["gpt4", "claude", "gemini"]
+
+class PhaseRequest(BaseModel):
+    session_id: Optional[str] = None
+    phase_number: int
+    input_data: Optional[Dict[str, Any]] = None
+    model_to_use: Optional[str] = "gpt4"  # Phase 0용
+    models_to_use: Optional[List[str]] = None  # Phase 1-6용
+    
+class PhaseApprovalRequest(BaseModel):
+    session_id: str
+    phase_number: int
+    approved: bool = True
+    modified_data: Optional[Dict[str, Any]] = None
 
 class EstimateResponse(BaseModel):
     success: bool
@@ -154,6 +171,209 @@ Please provide your response in a structured format with clear work scope breakd
             success=False,
             error_message=f"처리 중 오류 발생: {str(e)}"
         )
+
+@app.post("/api/pipeline/start")
+async def start_pipeline(request: PhaseRequest):
+    """
+    파이프라인 시작 - Phase 0부터 실행
+    """
+    try:
+        # Phase 0 입력 데이터 검증
+        if request.phase_number != 0:
+            return JSONResponse({
+                "success": False,
+                "error": "파이프라인은 Phase 0부터 시작해야 합니다"
+            }, status_code=400)
+        
+        if not request.input_data:
+            return JSONResponse({
+                "success": False,
+                "error": "Phase 0 입력 데이터가 필요합니다"
+            }, status_code=400)
+        
+        # 파이프라인 시작
+        session_id = await phase_manager.start_pipeline(
+            initial_data=request.input_data,
+            start_phase=0,
+            model_to_use=request.model_to_use or "gpt4"
+        )
+        
+        # Phase 0 결과 가져오기
+        phase_result = phase_manager.get_phase_result(session_id, 0)
+        
+        return JSONResponse({
+            "success": True,
+            "session_id": session_id,
+            "phase": 0,
+            "result": phase_result.output_data,
+            "requires_review": phase_result.metadata.get('requires_review', False)
+        })
+        
+    except Exception as e:
+        print(f"파이프라인 시작 오류: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        }, status_code=500)
+
+@app.post("/api/phase/execute")
+async def execute_phase(request: PhaseRequest):
+    """
+    특정 Phase 실행
+    """
+    try:
+        # 세션 확인
+        if not request.session_id:
+            return JSONResponse({
+                "success": False,
+                "error": "session_id가 필요합니다"
+            }, status_code=400)
+        
+        # Phase 실행
+        result = await phase_manager.execute_phase(
+            session_id=request.session_id,
+            phase_number=request.phase_number,
+            input_data=request.input_data,
+            model_to_use=request.model_to_use,
+            models_to_use=request.models_to_use
+        )
+        
+        return JSONResponse({
+            "success": True,
+            "session_id": request.session_id,
+            "phase": request.phase_number,
+            "result": result.output_data,
+            "requires_review": result.metadata.get('requires_review', False)
+        })
+        
+    except Exception as e:
+        print(f"Phase 실행 오류: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        }, status_code=500)
+
+@app.post("/api/phase/approve")
+async def approve_phase(request: PhaseApprovalRequest):
+    """
+    Phase 결과 승인/수정
+    """
+    try:
+        # Phase 결과 승인
+        success = phase_manager.approve_phase_result(
+            session_id=request.session_id,
+            phase_number=request.phase_number,
+            modified_data=request.modified_data
+        )
+        
+        if not success:
+            return JSONResponse({
+                "success": False,
+                "error": "Phase 결과를 찾을 수 없습니다"
+            }, status_code=404)
+        
+        return JSONResponse({
+            "success": True,
+            "message": f"Phase {request.phase_number} 승인 완료",
+            "can_continue": phase_manager._can_continue_to_next(request.session_id)
+        })
+        
+    except Exception as e:
+        print(f"Phase 승인 오류: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        }, status_code=500)
+
+@app.post("/api/phase/continue")
+async def continue_phase(request: Dict[str, Any]):
+    """
+    다음 Phase로 진행
+    """
+    try:
+        session_id = request.get('session_id')
+        models_to_use = request.get('models_to_use')
+        
+        if not session_id:
+            return JSONResponse({
+                "success": False,
+                "error": "session_id가 필요합니다"
+            }, status_code=400)
+        
+        # 다음 Phase 실행
+        result = await phase_manager.continue_to_next_phase(
+            session_id=session_id,
+            models_to_use=models_to_use
+        )
+        
+        if not result:
+            return JSONResponse({
+                "success": True,
+                "message": "모든 Phase가 완료되었습니다",
+                "completed": True
+            })
+        
+        return JSONResponse({
+            "success": True,
+            "session_id": session_id,
+            "phase": result.phase_number,
+            "result": result.output_data,
+            "requires_review": result.metadata.get('requires_review', False)
+        })
+        
+    except Exception as e:
+        print(f"Phase 진행 오류: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        }, status_code=500)
+
+@app.get("/api/pipeline/status/{session_id}")
+async def get_pipeline_status(session_id: str):
+    """
+    파이프라인 진행 상태 조회
+    """
+    try:
+        status = phase_manager.get_pipeline_status(session_id)
+        
+        if 'error' in status:
+            return JSONResponse({
+                "success": False,
+                "error": status['error']
+            }, status_code=404)
+        
+        return JSONResponse({
+            "success": True,
+            "status": status
+        })
+        
+    except Exception as e:
+        print(f"상태 조회 오류: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        }, status_code=500)
+
+@app.post("/api/pipeline/save/{session_id}")
+async def save_pipeline(session_id: str):
+    """
+    파이프라인 세션 저장
+    """
+    try:
+        file_path = phase_manager.save_session(session_id)
+        
+        return JSONResponse({
+            "success": True,
+            "message": "세션 저장 완료",
+            "file_path": file_path
+        })
+        
+    except Exception as e:
+        print(f"세션 저장 오류: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        }, status_code=500)
 
 @app.post("/api/upload-json")
 async def upload_json(file: UploadFile = File(...)):

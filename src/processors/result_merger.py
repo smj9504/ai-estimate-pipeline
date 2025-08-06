@@ -304,9 +304,15 @@ class QuantitativeMerger:
 class ResultMerger:
     """전체 결과 병합 관리자"""
     
-    def __init__(self, config_path: str = None):
-        self.config_loader = ConfigLoader(config_path)
-        self.config = self.config_loader.load_config()
+    def __init__(self, config=None):
+        if config is None:
+            # config가 없으면 새로 로드
+            self.config_loader = ConfigLoader()
+            self.config = self.config_loader.load_config()
+        else:
+            # config 객체가 제공되면 직접 사용
+            self.config = config
+            self.config_loader = ConfigLoader()
         
         self.qualitative_merger = QualitativeMerger(self.config)
         self.quantitative_merger = QuantitativeMerger(self.config)
