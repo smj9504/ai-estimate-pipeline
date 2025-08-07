@@ -414,6 +414,24 @@
             display: flex;
             gap: 10px;
         }
+        
+        /* Badge styles */
+        .badge {
+            display: inline-block;
+            padding: 0.35em 0.65em;
+            font-size: 0.75em;
+            font-weight: 700;
+            line-height: 1;
+            color: #fff;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: baseline;
+            border-radius: 0.375rem;
+        }
+        
+        .bg-success {
+            background-color: #22c55e !important;
+        }
     </style>
 </head>
 <body>
@@ -516,13 +534,16 @@ Special Instructions: High-end finishes required"></textarea>
                             <button class="btn btn-primary" id="startPipelineBtn" onclick="startPipeline()">
                                 Start Pipeline (Phase 0)
                             </button>
+                            <button class="btn btn-success" onclick="loadTestData()" title="Load preset test data for quick testing">
+                                Load Test Data
+                            </button>
                             <button class="btn btn-secondary" onclick="clearInputs()">
                                 Clear All
                             </button>
                         </div>
                     </div>
                     
-                    <!-- Phase 1-2 Model Selection -->
+                    <!-- Phase 1 Model Selection -->
                     <div id="phaseModelSelection" class="phase-input" style="display: none;">
                         <h4>Select AI Models for Processing:</h4>
                         <div class="model-selection">
@@ -538,6 +559,11 @@ Special Instructions: High-end finishes required"></textarea>
                                 <input type="checkbox" id="modelGemini" value="gemini" checked>
                                 <label for="modelGemini">Gemini</label>
                             </div>
+                        </div>
+                        <div class="phase-actions" style="margin-top: 20px;">
+                            <button class="btn btn-primary" onclick="continueToNextPhase()">
+                                Proceed to Phase 1 Processing
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -754,6 +780,14 @@ Special Instructions: High-end finishes required"></textarea>
             }
         }
         
+        // General progress update function
+        function updateProgress(progress) {
+            // Update progress line with decimal value (0-1 scale)
+            const progressLine = document.getElementById('progressLine');
+            const progressPercentage = progress * 100;
+            progressLine.style.width = `${progressPercentage}%`;
+        }
+        
         // Pipeline Control Functions
         async function startPipeline() {
             // Validation
@@ -788,6 +822,9 @@ Special Instructions: High-end finishes required"></textarea>
                 document.getElementById('startPipelineBtn').disabled = true;
                 pipelineState.isProcessing = true;
                 
+                // Show processing indicator for Phase 0
+                showPhaseProcessing(0, ['gpt4']); // Phase 0 uses single model
+                
                 // Call API to start pipeline
                 const response = await fetch('/api/pipeline/start', {
                     method: 'POST',
@@ -797,7 +834,7 @@ Special Instructions: High-end finishes required"></textarea>
                     body: JSON.stringify({
                         phase_number: 0,
                         input_data: phase0Input,
-                        model_to_use: 'gpt4'
+                        model_to_use: 'gemini'
                     })
                 });
                 
@@ -862,8 +899,41 @@ Special Instructions: High-end finishes required"></textarea>
                 
                 log(`Phase ${pipelineState.currentPhase} approved`);
                 
-                // Continue to next phase
-                await continueToNextPhase();
+                // Phase 0 완료 후 모델 선택 화면 표시
+                if (pipelineState.currentPhase === 0) {
+                    // Phase 0 승인 완료 - 모델 선택 화면 표시
+                    document.getElementById('approvalSection').style.display = 'none';
+                    document.getElementById('phaseModelSelection').style.display = 'block';
+                    showStatus('info', 'Phase 0 approved. Please select models for Phase 1 processing.');
+                    updateProgress(0.5); // 중간 단계 표시
+                    
+                    // Hide input action buttons after Phase 0 approval
+                    const actionButtons = document.querySelector('.action-buttons');
+                    if (actionButtons) {
+                        actionButtons.style.display = 'none';
+                    }
+                    
+                    // Update button text for Phase 1
+                    const proceedButton = document.querySelector('#phaseModelSelection .btn-primary');
+                    if (proceedButton) {
+                        proceedButton.textContent = 'Proceed to Phase 1 Processing';
+                    }
+                } else if (pipelineState.currentPhase === 1) {
+                    // Phase 1 승인 완료 - 모델 선택 화면 표시
+                    document.getElementById('approvalSection').style.display = 'none';
+                    document.getElementById('phaseModelSelection').style.display = 'block';
+                    showStatus('info', 'Phase 1 approved. Please select models for Phase 2 processing.');
+                    updateProgress(0.66); // Phase 2 단계 표시
+                    
+                    // Update button text for Phase 2
+                    const proceedButton = document.querySelector('#phaseModelSelection .btn-primary');
+                    if (proceedButton) {
+                        proceedButton.textContent = 'Proceed to Phase 2 Processing';
+                    }
+                } else {
+                    // 다른 Phase는 바로 계속
+                    await continueToNextPhase();
+                }
                 
             } catch (error) {
                 showStatus('error', `Approval error: ${error.message}`);
@@ -872,6 +942,9 @@ Special Instructions: High-end finishes required"></textarea>
         }
         
         async function continueToNextPhase() {
+            // Hide model selection screen
+            document.getElementById('phaseModelSelection').style.display = 'none';
+            
             // Check if we're at Phase 2 (our current limit)
             if (pipelineState.currentPhase >= 2) {
                 showStatus('info', 'Pipeline completed up to Phase 2');
@@ -881,28 +954,26 @@ Special Instructions: High-end finishes required"></textarea>
                 return;
             }
             
-            // Special handling for Phase 1-2 (needs model selection)
-            let models = ['gpt4', 'claude', 'gemini'];
-            if (pipelineState.currentPhase === 0) {
-                // Show model selection for Phase 1-2
-                document.getElementById('phaseModelSelection').style.display = 'block';
-                
-                // Get selected models
-                const selectedModels = [];
-                if (document.getElementById('modelGpt4').checked) selectedModels.push('gpt4');
-                if (document.getElementById('modelClaude').checked) selectedModels.push('claude');
-                if (document.getElementById('modelGemini').checked) selectedModels.push('gemini');
-                
-                if (selectedModels.length === 0) {
-                    showStatus('warning', 'Please select at least one model for Phase 1-2');
-                    return;
-                }
-                models = selectedModels;
+            // Get selected models for Phase 1
+            const selectedModels = [];
+            if (document.getElementById('modelGpt4').checked) selectedModels.push('gpt4');
+            if (document.getElementById('modelClaude').checked) selectedModels.push('claude');
+            if (document.getElementById('modelGemini').checked) selectedModels.push('gemini');
+            
+            if (selectedModels.length === 0) {
+                showStatus('warning', 'Please select at least one model for Phase 1');
+                return;
             }
             
+            let models = selectedModels;
+            
             try {
-                showStatus('info', `Starting Phase ${pipelineState.currentPhase + 1}...`);
+                const nextPhase = pipelineState.currentPhase + 1;
+                showStatus('info', `Starting Phase ${nextPhase}...`);
                 document.getElementById('sessionStatus').textContent = 'Processing';
+                
+                // Show processing indicator in result area
+                showPhaseProcessing(nextPhase, models);
                 
                 const response = await fetch('/api/phase/continue', {
                     method: 'POST',
@@ -958,6 +1029,84 @@ Special Instructions: High-end finishes required"></textarea>
             log('Modify phase requested - feature pending');
         }
         
+        function showPhaseProcessing(phaseNumber, selectedModels) {
+            const resultViewer = document.getElementById('resultViewer');
+            const rawJsonViewer = document.getElementById('rawJsonViewer');
+            
+            // Show processing indicator
+            let processingContent = `
+                <div class="processing-indicator">
+                    <h4>Phase ${phaseNumber}: Processing in Progress</h4>
+                    <div class="processing-status">
+                        <div class="spinner">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="sr-only">Loading...</span>
+                            </div>
+                        </div>
+                        <p><strong>Status:</strong> <span class="text-info">Running AI models...</span></p>
+                        <p><strong>Selected Models:</strong> ${selectedModels.map(model => {
+                            const modelNames = {'gpt4': 'GPT-4', 'claude': 'Claude', 'gemini': 'Gemini'};
+                            return modelNames[model] || model;
+                        }).join(', ')}</p>
+                        <p><strong>Phase Description:</strong> 
+                            ${phaseNumber === 0 ? 'Generating initial scope of work from measurement and demolition data' :
+                              phaseNumber === 1 ? 'Merging measurement data with work scope using multi-model analysis' : 
+                              phaseNumber === 2 ? 'Performing quantity survey with consensus-based estimation' :
+                              `Processing Phase ${phaseNumber} operations`}
+                        </p>
+                        <div class="progress mt-3" style="height: 25px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" 
+                                 role="progressbar" style="width: 100%" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
+                                Processing...
+                            </div>
+                        </div>
+                        <div class="processing-steps mt-3">
+                            <small class="text-muted">
+                                • Sending requests to AI models<br>
+                                • Collecting responses<br>
+                                • Merging results with confidence scoring<br>
+                                • Validating output data
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                
+                <style>
+                .processing-indicator {
+                    text-align: center;
+                    padding: 30px;
+                    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+                    border-radius: 12px;
+                    border: 2px solid #0066cc;
+                }
+                .processing-status {
+                    margin-top: 20px;
+                }
+                .spinner {
+                    margin: 20px 0;
+                }
+                .spinner-border {
+                    width: 3rem;
+                    height: 3rem;
+                }
+                .processing-steps {
+                    background: #f8f9fa;
+                    padding: 15px;
+                    border-radius: 8px;
+                    border-left: 4px solid #0066cc;
+                }
+                </style>
+            `;
+            
+            resultViewer.innerHTML = processingContent;
+            rawJsonViewer.textContent = JSON.stringify({
+                "status": "processing",
+                "phase": phaseNumber,
+                "models": selectedModels,
+                "timestamp": new Date().toISOString()
+            }, null, 2);
+        }
+        
         function displayPhaseResult(phaseNumber, result) {
             const resultViewer = document.getElementById('resultViewer');
             const rawJsonViewer = document.getElementById('rawJsonViewer');
@@ -969,15 +1118,42 @@ Special Instructions: High-end finishes required"></textarea>
                 displayContent = `
                     <h4>Phase 0: Data Preparation Complete</h4>
                     <p><strong>Status:</strong> Data merged and formatted</p>
-                    <p><strong>Rooms:</strong> ${result.rooms ? result.rooms.length : 0}</p>
+                    <p><strong>Rooms:</strong> ${result.data ? result.data.reduce((total, floor) => total + (floor.rooms ? floor.rooms.length : 0), 0) : 0}</p>
                     <p><strong>Total Items:</strong> ${JSON.stringify(result).length} characters</p>
                 `;
             } else if (phaseNumber === 1) {
+                const roomCount = result.data ? result.data.reduce((total, floor) => total + (floor.rooms ? floor.rooms.length : 0), 0) : 0;
+                const models = result.models_used ? result.models_used.join(', ') : 'N/A';
+                const processingTime = result.processing_time || 'N/A';
+                
                 displayContent = `
                     <h4>Phase 1: Measurement & Work Scope Merged</h4>
-                    <p><strong>Rooms Processed:</strong> ${result.rooms ? result.rooms.length : 0}</p>
-                    <p><strong>Confidence:</strong> ${result.confidence || 'N/A'}</p>
+                    <p><strong>Status:</strong> <span class="badge bg-success">Completed</span></p>
+                    <p><strong>Models Used:</strong> ${models}</p>
+                    <p><strong>Rooms Processed:</strong> ${roomCount}</p>
+                    <p><strong>Processing Time:</strong> ${processingTime}</p>
+                    <p><strong>Confidence Score:</strong> ${result.confidence_score ? (result.confidence_score * 100).toFixed(1) + '%' : (result.confidence || 'N/A')}</p>
                 `;
+                
+                // Show room details if available
+                if (result.rooms && result.rooms.length > 0) {
+                    displayContent += '<div style="margin-top: 15px;"><h5>Room Summary:</h5><ul>';
+                    result.rooms.forEach(room => {
+                        const workItemsCount = room.work_items ? room.work_items.length : 0;
+                        displayContent += `<li><strong>${room.name || 'Unknown Room'}:</strong> ${workItemsCount} work items processed</li>`;
+                    });
+                    displayContent += '</ul></div>';
+                }
+                
+                // Show merged data summary if available
+                if (result.summary) {
+                    displayContent += `
+                        <div style="margin-top: 15px;">
+                            <h5>Merge Summary:</h5>
+                            <p>${result.summary}</p>
+                        </div>
+                    `;
+                }
             } else if (phaseNumber === 2) {
                 displayContent = `
                     <h4>Phase 2: Quantity Survey Complete</h4>
@@ -1024,10 +1200,60 @@ Special Instructions: High-end finishes required"></textarea>
             document.getElementById('approvalSection').style.display = 'none';
             document.getElementById('phaseModelSelection').style.display = 'none';
             
+            // Show input action buttons again
+            const actionButtons = document.querySelector('.action-buttons');
+            if (actionButtons) {
+                actionButtons.style.display = 'flex';
+            }
+            
             updatePhaseProgress(0);
             
             showStatus('info', 'All inputs cleared');
             log('Pipeline reset');
+        }
+        
+        // Load test data for quick testing
+        async function loadTestData() {
+            try {
+                showStatus('info', 'Loading test data from /test_data files...');
+                log('Fetching test data from API...');
+                
+                // Call API to get test data from /test_data files
+                const response = await fetch('/api/test-data/load');
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to load test data');
+                }
+                
+                // Extract data from API response
+                const { measurement_data, demo_data, intake_text } = result.data;
+                
+                // Load the data into pipeline state
+                pipelineState.measurementData = measurement_data;
+                pipelineState.demoData = demo_data;
+                document.getElementById('intakeFormData').value = intake_text;
+                
+                // Count rooms for status display
+                const roomCount = measurement_data.reduce((total, floor) => 
+                    total + (floor.rooms ? floor.rooms.length : 0), 0
+                );
+                const floorCount = measurement_data.length;
+                
+                // Update status displays
+                document.getElementById('measurementStatus').textContent = 
+                    `✓ Test measurement data loaded (${floorCount} floors, ${roomCount} rooms)`;
+                document.getElementById('demoStatus').textContent = 
+                    `✓ Test demo data loaded from /test_data/sample_demo.json`;
+                
+                showStatus('success', 'Test data loaded successfully from /test_data files! You can now start the pipeline.');
+                log(`Test data loaded: ${floorCount} floors, ${roomCount} rooms, intake form text`);
+                
+            } catch (error) {
+                showStatus('error', `Failed to load test data: ${error.message}`);
+                log(`Error loading test data: ${error.message}`, 'error');
+                console.error('Test data load error:', error);
+            }
         }
         
         // Initialize on page load

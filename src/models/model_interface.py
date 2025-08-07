@@ -83,8 +83,9 @@ class AIModelInterface(ABC):
 class GPT4Interface(AIModelInterface):
     """GPT-4 인터페이스"""
     
-    def __init__(self, api_key: str):
-        super().__init__(api_key, "gpt-4")
+    def __init__(self, api_key: str, model_name: str = None):
+        self.actual_model_name = model_name or "gpt-4o-mini"
+        super().__init__(api_key, self.actual_model_name)
         self.client = openai.AsyncOpenAI(api_key=api_key)
         self.logger = get_logger('gpt4_interface')
     
@@ -97,10 +98,10 @@ class GPT4Interface(AIModelInterface):
             
             self.logger.info("GPT-4 API 호출 시작")
             self.logger.debug(f"프롬프트 크기: {len(full_prompt)} characters")
-            log_model_call("gpt-4", len(full_prompt))
+            log_model_call(self.actual_model_name, len(full_prompt))
             
             response = await self.client.chat.completions.create(
-                model="gpt-4",
+                model=self.actual_model_name,
                 messages=[
                     {
                         "role": "system", 
@@ -145,8 +146,9 @@ class GPT4Interface(AIModelInterface):
 class ClaudeInterface(AIModelInterface):
     """Claude 인터페이스"""
     
-    def __init__(self, api_key: str):
-        super().__init__(api_key, "claude-3-sonnet")
+    def __init__(self, api_key: str, model_name: str = None):
+        self.actual_model_name = model_name or "claude-3-5-sonnet-20241022"
+        super().__init__(api_key, self.actual_model_name)
         self.client = Anthropic(api_key=api_key)
         self.logger = get_logger('claude_interface')
     
@@ -159,12 +161,12 @@ class ClaudeInterface(AIModelInterface):
             
             self.logger.info("Claude API 호출 시작")
             self.logger.debug(f"프롬프트 크기: {len(full_prompt)} characters")
-            log_model_call("claude-3-sonnet", len(full_prompt))
+            log_model_call(self.actual_model_name, len(full_prompt))
             
             # asyncio.to_thread를 사용해서 동기 API를 비동기로 실행
             response = await asyncio.to_thread(
                 self.client.messages.create,
-                model="claude-3-sonnet-20240229",
+                model=self.actual_model_name,
                 max_tokens=3000,
                 temperature=0.1,
                 messages=[{"role": "user", "content": full_prompt}]
@@ -202,10 +204,11 @@ class ClaudeInterface(AIModelInterface):
 class GeminiInterface(AIModelInterface):
     """Gemini 인터페이스"""
     
-    def __init__(self, api_key: str):
-        super().__init__(api_key, "gemini-pro")
+    def __init__(self, api_key: str, model_name: str = None):
+        self.actual_model_name = model_name or "gemini-1.5-flash"
+        super().__init__(api_key, self.actual_model_name)
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
+        self.model = genai.GenerativeModel(self.actual_model_name)
         self.logger = get_logger('gemini_interface')
     
     async def call_model(self, prompt: str, json_data: Dict[str, Any]) -> ModelResponse:
@@ -217,7 +220,7 @@ class GeminiInterface(AIModelInterface):
             
             self.logger.info("Gemini API 호출 시작")
             self.logger.debug(f"프롬프트 크기: {len(full_prompt)} characters")
-            log_model_call("gemini-pro", len(full_prompt))
+            log_model_call(self.actual_model_name, len(full_prompt))
             
             # asyncio.to_thread를 사용해서 동기 API를 비동기로 실행
             response = await asyncio.to_thread(
@@ -264,21 +267,22 @@ class ModelOrchestrator:
     def __init__(self):
         self.config_loader = ConfigLoader()
         self.api_keys = self.config_loader.get_api_keys()
+        self.model_names = self.config_loader.get_model_names()
         self.logger = get_logger('model_orchestrator')
         
         # 모델 인터페이스 초기화
         self.models = {}
         
         if self.api_keys['openai']:
-            self.models['gpt4'] = GPT4Interface(self.api_keys['openai'])
+            self.models['gpt4'] = GPT4Interface(self.api_keys['openai'], self.model_names['gpt4'])
             self.logger.info("GPT-4 모델 초기화 완료")
         
         if self.api_keys['anthropic']:
-            self.models['claude'] = ClaudeInterface(self.api_keys['anthropic'])
+            self.models['claude'] = ClaudeInterface(self.api_keys['anthropic'], self.model_names['claude'])
             self.logger.info("Claude 모델 초기화 완료")
         
         if self.api_keys['google']:
-            self.models['gemini'] = GeminiInterface(self.api_keys['google'])
+            self.models['gemini'] = GeminiInterface(self.api_keys['google'], self.model_names['gemini'])
             self.logger.info("Gemini 모델 초기화 완료")
         
         self.logger.info(f"총 {len(self.models)}개 모델 사용 가능")

@@ -45,7 +45,7 @@ class PhaseRequest(BaseModel):
     session_id: Optional[str] = None
     phase_number: int
     input_data: Optional[Dict[str, Any]] = None
-    model_to_use: Optional[str] = "gpt4"  # Phase 0용
+    model_to_use: Optional[str] = "gemini"  # Phase 0용
     models_to_use: Optional[List[str]] = None  # Phase 1-6용
     
 class PhaseApprovalRequest(BaseModel):
@@ -207,7 +207,7 @@ async def start_pipeline(request: PhaseRequest):
         session_id = await phase_manager.start_pipeline(
             initial_data=request.input_data,
             start_phase=0,
-            model_to_use=request.model_to_use or "gpt4"
+            model_to_use=request.model_to_use or "gemini"
         )
         
         # Phase 0 결과 가져오기
@@ -480,6 +480,74 @@ async def models_status():
             "error": str(e),
             "models": {}
         }
+
+@app.get("/api/test-data/load")
+async def load_test_data():
+    """
+    테스트 데이터 로드 - /test_data 경로의 샘플 파일들 반환
+    """
+    try:
+        import os
+        from pathlib import Path
+        
+        # 프로젝트 루트에서 test_data 경로
+        project_root = Path(__file__).parent.parent
+        test_data_dir = project_root / "test_data"
+        
+        # 파일 경로들
+        measurement_file = test_data_dir / "sample_measurement.json"
+        demo_file = test_data_dir / "sample_demo.json"
+        intake_file = test_data_dir / "sample_intake_form.txt"
+        
+        # 파일 존재 확인
+        if not measurement_file.exists():
+            raise FileNotFoundError(f"Measurement file not found: {measurement_file}")
+        if not demo_file.exists():
+            raise FileNotFoundError(f"Demo file not found: {demo_file}")
+        if not intake_file.exists():
+            raise FileNotFoundError(f"Intake form file not found: {intake_file}")
+        
+        # JSON 파일 읽기
+        with open(measurement_file, 'r', encoding='utf-8') as f:
+            measurement_data = json.load(f)
+        
+        with open(demo_file, 'r', encoding='utf-8') as f:
+            demo_data = json.load(f)
+        
+        # Intake form 텍스트 파일 읽기
+        with open(intake_file, 'r', encoding='utf-8') as f:
+            intake_text = f.read().strip()
+        
+        return JSONResponse({
+            "success": True,
+            "data": {
+                "measurement_data": measurement_data,
+                "demo_data": demo_data,
+                "intake_text": intake_text
+            },
+            "message": "Test data loaded successfully"
+        })
+        
+    except FileNotFoundError as e:
+        logger.error(f"테스트 데이터 파일 없음: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": f"Test data file not found: {str(e)}"
+        }, status_code=404)
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"테스트 데이터 JSON 파싱 오류: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": f"Invalid JSON in test data file: {str(e)}"
+        }, status_code=400)
+        
+    except Exception as e:
+        logger.error(f"테스트 데이터 로드 오류: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        }, status_code=500)
 
 if __name__ == "__main__":
     import uvicorn

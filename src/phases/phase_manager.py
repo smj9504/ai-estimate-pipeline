@@ -208,12 +208,25 @@ class PhaseManager:
                 if not models_to_use:
                     models_to_use = ["gpt4", "claude", "gemini"]
                 
-                output_data = await processor.process(
-                    phase0_output=input_data if phase_number == 1 else None,
-                    phase1_output=input_data if phase_number == 2 else None,
-                    models_to_use=models_to_use,
-                    project_id=input_data.get('project_id')
-                )
+                # Phase별 파라미터 구분
+                if phase_number == 1:
+                    output_data = await processor.process(
+                        phase0_output=input_data,
+                        models_to_use=models_to_use,
+                        project_id=input_data.get('project_id')
+                    )
+                elif phase_number == 2:
+                    output_data = await processor.process(
+                        phase1_output=input_data,
+                        models_to_use=models_to_use,
+                        project_id=input_data.get('project_id')
+                    )
+                else:
+                    output_data = await processor.process(
+                        input_data=input_data,
+                        models_to_use=models_to_use,
+                        project_id=input_data.get('project_id')
+                    )
         
         except Exception as e:
             print(f"Phase {phase_number} 실행 오류: {e}")

@@ -48,6 +48,14 @@ class ConfigLoader:
     def get_debug_mode(self) -> bool:
         """디버그 모드 설정"""
         return os.getenv('DEBUG', 'False').lower() == 'true'
+    
+    def get_model_names(self) -> Dict[str, str]:
+        """환경변수에서 AI 모델명 로드"""
+        return {
+            'gpt4': os.getenv('GPT4_MODEL_NAME', 'gpt-4o-mini'),
+            'claude': os.getenv('CLAUDE_MODEL_NAME', 'claude-3-5-sonnet-20241022'),
+            'gemini': os.getenv('GEMINI_MODEL_NAME', 'gemini-1.5-flash')
+        }
 
 
 # src/utils/statistical_utils.py

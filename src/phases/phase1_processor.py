@@ -98,15 +98,15 @@ class Phase1Processor:
                 'models_used': models_to_use,
                 'models_responded': len(model_results),
                 'project_id': prompt_variables['project_id'],
-                'data': merged_result.to_dict(),
+                'data': merged_result.model_dump(),
                 'validation': validation_result,
-                'confidence_score': merged_result.confidence_score,
-                'consensus_level': merged_result.metadata.get('consensus_level', 0),
+                'confidence_score': merged_result.overall_confidence,
+                'consensus_level': merged_result.metadata.consensus_level,
                 'processing_time': sum(r.processing_time for r in model_results),
                 'success': True
             }
             
-            print(f"Phase 1 완료: 신뢰도 {merged_result.confidence_score:.2f}")
+            print(f"Phase 1 완료: 신뢰도 {merged_result.overall_confidence:.2f}")
             return result
             
         except Exception as e:
