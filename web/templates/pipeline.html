@@ -987,6 +987,7 @@ Special Instructions: High-end finishes required"></textarea>
                 });
                 
                 const result = await response.json();
+                console.log('Phase continue API response:', result);
                 
                 if (result.success) {
                     if (result.completed) {
@@ -994,14 +995,26 @@ Special Instructions: High-end finishes required"></textarea>
                         document.getElementById('approvalSection').style.display = 'none';
                         document.getElementById('sessionStatus').textContent = 'Completed';
                     } else {
+                        // Update pipeline state
                         pipelineState.currentPhase = result.phase;
                         pipelineState.phaseResults[result.phase] = result.result;
                         
                         updatePhaseProgress(result.phase);
+                        
+                        // Hide processing screen and show results
+                        console.log('Calling displayPhaseResult with:', result.phase, result.result);
+                        log(`Displaying Phase ${result.phase} results`);
+                        
+                        // Clear processing display first
+                        const resultViewer = document.getElementById('resultViewer');
+                        resultViewer.innerHTML = ''; // Clear processing screen
+                        
+                        // Display the actual results
                         displayPhaseResult(result.phase, result.result);
                         
                         showStatus('success', `Phase ${result.phase} completed`);
-                        log(`Phase ${result.phase} completed`);
+                        log(`Phase ${result.phase} completed successfully`);
+                        document.getElementById('sessionStatus').textContent = 'Completed';
                         
                         // Show approval section if needed
                         if (result.requires_review) {
@@ -1108,6 +1121,8 @@ Special Instructions: High-end finishes required"></textarea>
         }
         
         function displayPhaseResult(phaseNumber, result) {
+            console.log(`displayPhaseResult called: Phase ${phaseNumber}`, result);
+            
             const resultViewer = document.getElementById('resultViewer');
             const rawJsonViewer = document.getElementById('rawJsonViewer');
             
@@ -1171,8 +1186,10 @@ Special Instructions: High-end finishes required"></textarea>
                 }
             }
             
+            console.log('Setting resultViewer.innerHTML to:', displayContent);
             resultViewer.innerHTML = displayContent;
             rawJsonViewer.textContent = JSON.stringify(result, null, 2);
+            console.log('displayPhaseResult completed successfully');
         }
         
         function clearInputs() {

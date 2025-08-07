@@ -315,18 +315,23 @@ async def continue_phase(request: Dict[str, Any]):
                 "error": "session_id가 필요합니다"
             }, status_code=400)
         
-        # 다음 Phase 실행
+        logger.info(f"Phase 진행 시작 - 세션: {session_id}, 모델: {models_to_use}")
+        
+        # 다음 Phase 실행 - 완료될 때까지 대기
         result = await phase_manager.continue_to_next_phase(
             session_id=session_id,
             models_to_use=models_to_use
         )
         
         if not result:
+            logger.info(f"모든 Phase 완료됨 - 세션: {session_id}")
             return JSONResponse({
                 "success": True,
                 "message": "모든 Phase가 완료되었습니다",
                 "completed": True
             })
+        
+        logger.info(f"Phase {result.phase_number} 완료 - 세션: {session_id}, 성공: {result.output_data.get('success', False)}")
         
         return JSONResponse({
             "success": True,
@@ -338,7 +343,7 @@ async def continue_phase(request: Dict[str, Any]):
         
     except Exception as e:
         logger.error(f"Phase 진행 오류: {e}")
-        log_error('main', e, {'session': session_id})
+        log_error('main', e, {'session': session_id if 'session_id' in locals() else 'unknown'})
         return JSONResponse({
             "success": False,
             "error": str(e)
