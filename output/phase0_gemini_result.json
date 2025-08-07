@@ -1,0 +1,329 @@
+{
+  "phase": 0,
+  "phase_name": "Generate Scope of Work",
+  "timestamp": "2025-08-07T09:41:19.500854",
+  "model_used": "gemini",
+  "project_id": "TEST-GEMINI-001",
+  "data": [
+    {
+      "Jobsite": "456 Elm Street, Arlington, VA 22201",
+      "occupancy": "Occupied",
+      "company": {}
+    },
+    {
+      "location": "1st Floor",
+      "rooms": [
+        {
+          "name": "Living Room",
+          "material": {
+            "Floor": "hardwood",
+            "wall": "drywall",
+            "ceiling": "drywall",
+            "Baseboard": "wood",
+            "Quarter Round": "wood"
+          },
+          "work_scope": {
+            "Flooring": "Remove & Replace",
+            "Wall": "Patch",
+            "Ceiling": "Patch",
+            "Baseboard": "Remove & Replace",
+            "Quarter Round": "Remove & Replace",
+            "Paint Scope": "Wall, Ceiling, Baseboard"
+          },
+          "measurements": {
+            "height": 8.0,
+            "wall_area_sqft": 300.0,
+            "ceiling_area_sqft": 150.0,
+            "floor_area_sqft": 150.0,
+            "walls_and_ceiling_area_sqft": 450.0,
+            "flooring_area_sy": 16.67,
+            "ceiling_perimeter_lf": 60.0,
+            "floor_perimeter_lf": 60.0,
+            "openings": [
+              {
+                "type": "door",
+                "size": "3' x 7'"
+              },
+              {
+                "type": "window",
+                "size": "4' x 5'"
+              }
+            ]
+          },
+          "demo_scope(already demo'd)": {
+            "Ceiling Drywall(sq_ft)": 0,
+            "Wall Drywall(sq_ft)": 80
+          },
+          "additional_notes": {
+            "protection": [
+              "cover furniture",
+              "seal doorways"
+            ],
+            "detach_reset": [
+              "wall-mounted TV",
+              "artwork"
+            ]
+          }
+        },
+        {
+          "name": "Kitchen",
+          "material": {
+            "Floor": "luxury vinyl tile",
+            "wall": "drywall",
+            "ceiling": "smooth drywall",
+            "Baseboard": "wood",
+            "Quarter Round": "wood"
+          },
+          "work_scope": {
+            "Flooring": "Remove & Replace",
+            "Wall": "Remove & Replace (behind cabinets)",
+            "Ceiling": "Remove & Replace",
+            "Baseboard": "Remove & Replace",
+            "Quarter Round": "Remove & Replace",
+            "Paint Scope": "Wall, Ceiling, Baseboard"
+          },
+          "measurements": {
+            "height": 8.0,
+            "wall_area_sqft": 250.0,
+            "ceiling_area_sqft": 100.0,
+            "floor_area_sqft": 100.0,
+            "walls_and_ceiling_area_sqft": 350.0,
+            "flooring_area_sy": 11.11,
+            "ceiling_perimeter_lf": 50.0,
+            "floor_perimeter_lf": 50.0,
+            "openings": [
+              {
+                "type": "door",
+                "size": "3' x 7'"
+              },
+              {
+                "type": "window",
+                "size": "3' x 4'"
+              }
+            ]
+          },
+          "demo_scope(already demo'd)": {
+            "Ceiling Drywall(sq_ft)": 0,
+            "Wall Drywall(sq_ft)": 120
+          },
+          "additional_notes": {
+            "protection": [
+              "plastic wrap appliances"
+            ],
+            "detach_reset": [
+              "dishwasher",
+              "refrigerator water line"
+            ]
+          }
+        },
+        {
+          "name": "Bathroom",
+          "material": {
+            "Floor": "ceramic tile",
+            "wall": "moisture-resistant drywall",
+            "ceiling": "drywall",
+            "Baseboard": "wood",
+            "Quarter Round": "wood"
+          },
+          "work_scope": {
+            "Flooring": "Remove & Replace",
+            "Wall": "Remove & Replace (to 4ft height)",
+            "Ceiling": "Patch & Paint",
+            "Baseboard": "Remove & Replace",
+            "Quarter Round": "Remove & Replace",
+            "Paint Scope": ""
+          },
+          "measurements": {
+            "height": 8.0,
+            "wall_area_sqft": 180.0,
+            "ceiling_area_sqft": 50.0,
+            "floor_area_sqft": 50.0,
+            "walls_and_ceiling_area_sqft": 230.0,
+            "flooring_area_sy": 5.56,
+            "ceiling_perimeter_lf": 30.0,
+            "floor_perimeter_lf": 30.0,
+            "openings": [
+              {
+                "type": "door",
+                "size": "2.5' x 7'"
+              }
+            ]
+          },
+          "demo_scope(already demo'd)": {
+            "Ceiling Drywall(sq_ft)": 0,
+            "Wall Drywall(sq_ft)": 100
+          },
+          "additional_notes": {
+            "protection": [
+              "cover fixtures"
+            ],
+            "detach_reset": [
+              "toilet",
+              "vanity"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "location": "2nd Floor",
+      "rooms": [
+        {
+          "name": "Master Bedroom",
+          "material": {
+            "Floor": "engineered hardwood",
+            "wall": "drywall",
+            "ceiling": "drywall",
+            "Baseboard": "wood",
+            "Quarter Round": "wood"
+          },
+          "work_scope": {
+            "Flooring": "Remove & Replace",
+            "Wall": "Paint Only",
+            "Ceiling": "Paint Only",
+            "Baseboard": "Clean & Reset",
+            "Quarter Round": "Clean & Reset",
+            "Paint Scope": "Wall, Ceiling, Trim"
+          },
+          "measurements": {
+            "height": 8.0,
+            "wall_area_sqft": 320.0,
+            "ceiling_area_sqft": 180.0,
+            "floor_area_sqft": 180.0,
+            "walls_and_ceiling_area_sqft": 500.0,
+            "flooring_area_sy": 20.0,
+            "ceiling_perimeter_lf": 64.0,
+            "floor_perimeter_lf": 64.0,
+            "openings": [
+              {
+                "type": "door",
+                "size": "3' x 7'"
+              },
+              {
+                "type": "window",
+                "size": "4' x 5'"
+              },
+              {
+                "type": "window",
+                "size": "4' x 5'"
+              }
+            ]
+          },
+          "demo_scope(already demo'd)": {
+            "Ceiling Drywall(sq_ft)": 0,
+            "Wall Drywall(sq_ft)": 0
+          },
+          "additional_notes": {
+            "protection": [
+              "cover closet contents"
+            ],
+            "detach_reset": [
+              "ceiling fan"
+            ]
+          }
+        },
+        {
+          "name": "Bedroom 2",
+          "material": {
+            "Floor": "carpet with upgraded pad",
+            "wall": "drywall",
+            "ceiling": "drywall",
+            "Baseboard": "wood",
+            "Quarter Round": "wood"
+          },
+          "work_scope": {
+            "Flooring": "Remove & Replace",
+            "Wall": "Paint Only",
+            "Ceiling": "Paint Only",
+            "Baseboard": "Clean & Reset",
+            "Quarter Round": "Clean & Reset",
+            "Paint Scope": "Wall, Ceiling"
+          },
+          "measurements": {
+            "height": 8.0,
+            "wall_area_sqft": 280.0,
+            "ceiling_area_sqft": 120.0,
+            "floor_area_sqft": 120.0,
+            "walls_and_ceiling_area_sqft": 400.0,
+            "flooring_area_sy": 13.33,
+            "ceiling_perimeter_lf": 48.0,
+            "floor_perimeter_lf": 48.0,
+            "openings": [
+              {
+                "type": "door",
+                "size": "3' x 7'"
+              },
+              {
+                "type": "window",
+                "size": "3' x 4'"
+              }
+            ]
+          },
+          "demo_scope(already demo'd)": {
+            "Ceiling Drywall(sq_ft)": 0,
+            "Wall Drywall(sq_ft)": 0
+          },
+          "additional_notes": {
+            "protection": [],
+            "detach_reset": []
+          }
+        }
+      ]
+    },
+    {
+      "location": "Basement",
+      "rooms": [
+        {
+          "name": "Rec Room",
+          "material": {
+            "Floor": "waterproof LVT",
+            "wall": "mold-resistant drywall",
+            "ceiling": "drop-ceiling",
+            "Baseboard": "vinyl",
+            "Quarter Round": null
+          },
+          "work_scope": {
+            "Flooring": "Remove & Replace",
+            "Wall": "Remove & Replace (full height)",
+            "Ceiling": "Remove & Replace",
+            "Baseboard": "Remove & Replace",
+            "Quarter Round": null,
+            "Paint Scope": "Wall, Ceiling, Trim"
+          },
+          "measurements": {
+            "height": 7.5,
+            "wall_area_sqft": 500.0,
+            "ceiling_area_sqft": 200.0,
+            "floor_area_sqft": 200.0,
+            "walls_and_ceiling_area_sqft": 700.0,
+            "flooring_area_sy": 22.22,
+            "ceiling_perimeter_lf": 80.0,
+            "floor_perimeter_lf": 80.0,
+            "openings": [
+              {
+                "type": "door",
+                "size": "3' x 7'"
+              }
+            ]
+          },
+          "demo_scope(already demo'd)": {
+            "Ceiling Drywall(sq_ft)": 0,
+            "Wall Drywall(sq_ft)": 250
+          },
+          "additional_notes": {
+            "protection": [
+              "seal off HVAC",
+              "cover stairs"
+            ],
+            "detach_reset": [
+              "wall-mounted shelving",
+              "electrical outlets"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "processing_time": 0.0,
+  "success": true
+}

@@ -7,12 +7,14 @@ Phase 2: Quantity Survey
 """
 import json
 import asyncio
+import time
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 from src.utils.prompt_manager import PromptManager
 from src.models.model_interface import ModelOrchestrator
 from src.processors.result_merger import ResultMerger
+from src.utils.logger import get_logger, log_phase_start, log_phase_end, log_error
 
 class Phase2Processor:
     """
@@ -25,6 +27,7 @@ class Phase2Processor:
         self.prompt_manager = PromptManager()
         self.orchestrator = ModelOrchestrator()
         self.merger = ResultMerger(config)
+        self.logger = get_logger('phase2_processor')
     
     async def process(self,
                      phase1_output: Dict[str, Any],
@@ -41,7 +44,9 @@ class Phase2Processor:
         Returns:
             상세 수량이 포함된 견적 데이터
         """
-        print(f"Phase 2 시작: Quantity Survey - 모델: {models_to_use}")
+        start_time = time.time()
+        log_phase_start(2, "Quantity Survey", models=models_to_use)
+        self.logger.info(f"Phase 2 시작: Quantity Survey - 모델: {models_to_use}")
         
         try:
             # Phase 1 출력에서 데이터 추출
@@ -70,17 +75,17 @@ class Phase2Processor:
             )
             
             # 2. 멀티모델 병렬 실행
-            print(f"멀티모델 실행 중: {models_to_use}")
+            self.logger.info(f"멀티모델 실행 중: {models_to_use}")
             model_results = await self.orchestrator.run_parallel(
                 prompt=base_prompt,
                 json_data=input_data,
-                models_to_use=models_to_use
+                model_names=models_to_use
             )
             
             if not model_results:
                 raise ValueError("모든 모델 실행이 실패했습니다")
             
-            print(f"{len(model_results)}개 모델 응답 수신")
+            self.logger.info(f"{len(model_results)}개 모델 응답 수신")
             
             # 3. 수량 데이터 병합 (정량적 병합 중심)
             merged_result = await self._merge_quantity_results(model_results)
@@ -104,11 +109,19 @@ class Phase2Processor:
                 'success': True
             }
             
-            print(f"Phase 2 완료: 수량 산출 완료, Phase 3 준비 상태: {result['phase3_ready']}")
+            duration = time.time() - start_time
+            log_phase_end(2, "Quantity Survey", True, duration)
+            self.logger.info(f"Phase 2 완료: 수량 산출 완료, Phase 3 준비 상태: {result['phase3_ready']}")
             return result
             
         except Exception as e:
-            print(f"Phase 2 오류: {e}")
+            duration = time.time() - start_time
+            log_phase_end(2, "Quantity Survey", False, duration)
+            log_error('phase2_processor', e, {
+                'models': models_to_use,
+                'project_id': project_id
+            })
+            self.logger.error(f"Phase 2 오류: {e}")
             return {
                 'phase': 2,
                 'phase_name': 'Quantity Survey',

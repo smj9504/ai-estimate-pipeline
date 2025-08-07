@@ -1,0 +1,154 @@
+[
+    {
+        "location": "1st Floor",
+        "rooms": [
+            {
+                "name": "Living Room",
+                "demo_scope": {
+                    "flooring": {
+                        "material": "Carpet",
+                        "quantity": 150.00,
+                        "unit": "sqft",
+                        "status": "removed"
+                    },
+                    "drywall": {
+                        "material": "Drywall - Water Damaged",
+                        "quantity": 80.00,
+                        "unit": "sqft",
+                        "status": "removed",
+                        "location": "south wall"
+                    },
+                    "baseboard": {
+                        "material": "Wood Baseboard",
+                        "quantity": 60.00,
+                        "unit": "lf",
+                        "status": "removed"
+                    }
+                }
+            },
+            {
+                "name": "Kitchen",
+                "demo_scope": {
+                    "flooring": {
+                        "material": "Vinyl Tile",
+                        "quantity": 100.00,
+                        "unit": "sqft",
+                        "status": "removed"
+                    },
+                    "cabinets_upper": {
+                        "material": "Wood Cabinets - Upper",
+                        "quantity": 12.00,
+                        "unit": "lf",
+                        "status": "removed"
+                    },
+                    "cabinets_lower": {
+                        "material": "Wood Cabinets - Base",
+                        "quantity": 15.00,
+                        "unit": "lf",
+                        "status": "removed"
+                    },
+                    "countertop": {
+                        "material": "Laminate Countertop",
+                        "quantity": 15.00,
+                        "unit": "lf",
+                        "status": "removed"
+                    },
+                    "drywall": {
+                        "material": "Drywall - Water Damaged",
+                        "quantity": 120.00,
+                        "unit": "sqft",
+                        "status": "removed",
+                        "location": "behind cabinets"
+                    }
+                }
+            },
+            {
+                "name": "Bathroom",
+                "demo_scope": {
+                    "flooring": {
+                        "material": "Ceramic Tile",
+                        "quantity": 50.00,
+                        "unit": "sqft",
+                        "status": "removed"
+                    },
+                    "vanity": {
+                        "material": "Bathroom Vanity",
+                        "quantity": 1.00,
+                        "unit": "ea",
+                        "status": "removed"
+                    },
+                    "toilet": {
+                        "material": "Toilet",
+                        "quantity": 1.00,
+                        "unit": "ea",
+                        "status": "removed"
+                    },
+                    "drywall": {
+                        "material": "Drywall - Mold Damaged",
+                        "quantity": 100.00,
+                        "unit": "sqft",
+                        "status": "removed",
+                        "location": "all walls to 4ft height"
+                    }
+                }
+            }
+        ]
+    },
+    {
+        "location": "2nd Floor",
+        "rooms": [
+            {
+                "name": "Master Bedroom",
+                "demo_scope": {
+                    "flooring": {
+                        "material": "Carpet and Pad",
+                        "quantity": 180.00,
+                        "unit": "sqft",
+                        "status": "removed"
+                    }
+                }
+            },
+            {
+                "name": "Bedroom 2",
+                "demo_scope": {
+                    "flooring": {
+                        "material": "Carpet and Pad",
+                        "quantity": 120.00,
+                        "unit": "sqft",
+                        "status": "removed"
+                    }
+                }
+            }
+        ]
+    },
+    {
+        "location": "Basement",
+        "rooms": [
+            {
+                "name": "Rec Room",
+                "demo_scope": {
+                    "flooring": {
+                        "material": "Vinyl Plank",
+                        "quantity": 200.00,
+                        "unit": "sqft",
+                        "status": "removed"
+                    },
+                    "drywall": {
+                        "material": "Drywall - Water Damaged",
+                        "quantity": 250.00,
+                        "unit": "sqft",
+                        "status": "removed",
+                        "location": "lower 4ft of all walls"
+                    },
+                    "insulation": {
+                        "material": "Fiberglass Insulation",
+                        "quantity": 250.00,
+                        "unit": "sqft",
+                        "status": "removed",
+                        "location": "wet insulation in walls"
+                    }
+                }
+            }
+        ]
+    }
+]

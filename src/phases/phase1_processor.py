@@ -73,7 +73,7 @@ class Phase1Processor:
             model_results = await self.orchestrator.run_parallel(
                 prompt=base_prompt,
                 json_data=input_data,
-                models_to_use=models_to_use
+                model_names=models_to_use
             )
             
             if not model_results:

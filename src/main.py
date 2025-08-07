@@ -15,11 +15,17 @@ from src.processors.result_merger import ResultMerger
 from src.validators.estimation_validator import ComprehensiveValidator
 from src.models.data_models import ProjectData
 from src.phases.phase_manager import PhaseManager
+from src.utils.logger import get_logger, log_error
 
 app = FastAPI(title="Reconstruction Estimator", version="2.0.0")
 
+# Logger 설정
+logger = get_logger('main')
+
 # Phase Manager 인스턴스 (전역)
 phase_manager = PhaseManager()
+
+logger.info("FastAPI 서버 초기화 완료")
 
 # 템플릿과 정적 파일 설정
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -60,13 +66,18 @@ async def home(request: Request):
     """홈페이지 - JSON 업로드 인터페이스"""
     return templates.TemplateResponse("index.html", {"request": request})
 
+@app.get("/pipeline", response_class=HTMLResponse)
+async def pipeline(request: Request):
+    """Phase 기반 파이프라인 인터페이스"""
+    return templates.TemplateResponse("pipeline.html", {"request": request})
+
 @app.post("/api/estimate/merge", response_model=EstimateResponse)
 async def merge_estimates(request: EstimateRequest):
     """
     메인 API - 여러 모델 결과를 병합하여 최종 견적 생성
     """
     try:
-        print(f"견적 요청 시작: {request.models_to_use}")
+        logger.info(f"견적 요청 시작: {request.models_to_use}")
         
         # 1. 프롬프트 로드 (실제 프롬프트는 파일에서 읽어오거나 설정에서 가져옴)
         base_prompt = """You are a Senior Reconstruction Estimating Specialist in the DMV area. Your task is to generate a detailed reconstruction estimate by meticulously analyzing and simultaneously validating the provided complex project data. The input data is a single, consolidated JSON file that already contains all room-specific details.
@@ -101,13 +112,13 @@ Please provide your response in a structured format with clear work scope breakd
                 error_message="요청된 모델들을 사용할 수 없습니다. API 키를 확인하세요."
             )
         
-        print(f"사용 가능한 모델: {models_to_use}")
+        logger.info(f"사용 가능한 모델: {models_to_use}")
         
         # 모델 병렬 실행
         model_results = await orchestrator.run_parallel(
-            base_prompt, 
-            request.json_data, 
-            models_to_use
+            prompt=base_prompt, 
+            json_data=request.json_data, 
+            model_names=models_to_use
         )
         
         if not model_results:
@@ -116,13 +127,13 @@ Please provide your response in a structured format with clear work scope breakd
                 error_message="모든 모델 호출이 실패했습니다."
             )
         
-        print(f"모델 실행 완료: {len(model_results)}개 결과")
+        logger.info(f"모델 실행 완료: {len(model_results)}개 결과")
         
         # 3. 결과 병합
         merger = ResultMerger()
         merged_result = merger.merge_results(model_results)
         
-        print(f"병합 완료: 신뢰도 {merged_result.overall_confidence:.2f}")
+        logger.info(f"병합 완료: 신뢰도 {merged_result.overall_confidence:.2f}")
         
         # 4. 검증 (선택적)
         try:
@@ -138,7 +149,7 @@ Please provide your response in a structured format with clear work scope breakd
                 "is_valid": validation_result.is_valid
             }
         except Exception as e:
-            print(f"검증 중 오류 (계속 진행): {e}")
+            logger.warning(f"검증 중 오류 (계속 진행): {e}")
             validation_summary = {"validation_error": str(e)}
         
         # 5. 응답 생성
@@ -163,7 +174,8 @@ Please provide your response in a structured format with clear work scope breakd
         )
         
     except Exception as e:
-        print(f"견적 처리 중 오류: {e}")
+        logger.error(f"견적 처리 중 오류: {e}")
+        log_error('main', e, {'models': request.models_to_use})
         import traceback
         traceback.print_exc()
         
@@ -210,7 +222,8 @@ async def start_pipeline(request: PhaseRequest):
         })
         
     except Exception as e:
-        print(f"파이프라인 시작 오류: {e}")
+        logger.error(f"파이프라인 시작 오류: {e}")
+        log_error('main', e, {'phase': 0})
         return JSONResponse({
             "success": False,
             "error": str(e)
@@ -247,7 +260,8 @@ async def execute_phase(request: PhaseRequest):
         })
         
     except Exception as e:
-        print(f"Phase 실행 오류: {e}")
+        logger.error(f"Phase 실행 오류: {e}")
+        log_error('main', e, {'phase': request.phase_number, 'session': request.session_id})
         return JSONResponse({
             "success": False,
             "error": str(e)
@@ -279,7 +293,8 @@ async def approve_phase(request: PhaseApprovalRequest):
         })
         
     except Exception as e:
-        print(f"Phase 승인 오류: {e}")
+        logger.error(f"Phase 승인 오류: {e}")
+        log_error('main', e, {'phase': request.phase_number, 'session': request.session_id})
         return JSONResponse({
             "success": False,
             "error": str(e)
@@ -322,7 +337,8 @@ async def continue_phase(request: Dict[str, Any]):
         })
         
     except Exception as e:
-        print(f"Phase 진행 오류: {e}")
+        logger.error(f"Phase 진행 오류: {e}")
+        log_error('main', e, {'session': session_id})
         return JSONResponse({
             "success": False,
             "error": str(e)
@@ -348,7 +364,8 @@ async def get_pipeline_status(session_id: str):
         })
         
     except Exception as e:
-        print(f"상태 조회 오류: {e}")
+        logger.error(f"상태 조회 오류: {e}")
+        log_error('main', e, {'session': session_id})
         return JSONResponse({
             "success": False,
             "error": str(e)
@@ -369,7 +386,8 @@ async def save_pipeline(session_id: str):
         })
         
     except Exception as e:
-        print(f"세션 저장 오류: {e}")
+        logger.error(f"세션 저장 오류: {e}")
+        log_error('main', e, {'session': session_id})
         return JSONResponse({
             "success": False,
             "error": str(e)
@@ -465,4 +483,5 @@ async def models_status():
 
 if __name__ == "__main__":
     import uvicorn
+    logger.info("서버 시작 중...")
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)

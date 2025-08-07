@@ -194,12 +194,12 @@ class PhaseManager:
             if phase_number == 0:
                 # Phase 0: 단일 모델 사용
                 if not isinstance(input_data, dict) or 'measurement_data' not in input_data:
-                    raise ValueError("Phase 0에는 measurement_data, demolition_scope_data, scope_of_work_intake_form이 필요합니다")
+                    raise ValueError("Phase 0에는 measurement_data, demolition_scope_data, intake_form이 필요합니다")
                 
                 output_data = await processor.process(
                     measurement_data=input_data['measurement_data'],
                     demolition_scope_data=input_data['demolition_scope_data'],
-                    scope_of_work_intake_form=input_data['scope_of_work_intake_form'],
+                    intake_form=input_data['intake_form'],
                     model_to_use=model_to_use or "gpt4",
                     project_id=input_data.get('project_id')
                 )

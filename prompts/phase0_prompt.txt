@@ -1,17 +1,20 @@
-You are an expert data processor and JSON formatter. Your task is to combine three separate data inputs—`measurement_data`, `demolition_scope_data`, and `scope_of_work_intake_form`—into a single, unified JSON file. The final output must strictly adhere to the provided `Final Output JSON Format`.
+You are an expert data processor and JSON formatter. Your task is to combine three separate data inputs—`measurement_data`, `demolition_scope_data`, and `intake_form`—into a single, unified JSON file. The final output must strictly adhere to the provided `Final Output JSON Format`.
 
 Instructions:
 1.  **Read and Parse Inputs:** Carefully read and parse the provided JSON and text inputs.
-2.  **Extract General Information:** From the `scope_of_work_intake_form`, extract the "Property Address" and "Occupancy" and map them to the `Jobsite` and `occupancy` keys in the output JSON. The `company` key should be populated as `{}` if not specified.
+2.  **Extract General Information:** From the `intake_form`, extract the "Property Address" and "Occupancy" and map them to the `Jobsite` and `occupancy` keys in the output JSON. The `company` key should be populated as `{}` if not specified.
 3.  **Process Default Scopes:** The intake form may contain multiple `Default Scope` sections, one for each floor (e.g., `Default Scope(1st floor)`, `Default Scope(Basement)`). Parse these to establish the default material and work scope for each floor.
 4.  **Integrate Room Data:** Iterate through the rooms listed in the `measurement_data` and `demolition_scope_data`. For each room:
     * Match the room by its name and floor location.
     * Populate the `name` field from `measurement_data`.
     * Populate the `measurements` object directly from the `measurement_data`.
-    * Populate the `demo_scope(already demo'd)` object from the `demolition_scope_data`.
+    * Process the `demo_scope` from `demolition_scope_data` and convert to the required output format for `demo_scope(already demo'd)`:
+      - Extract drywall quantities from items with "drywall" in the material name
+      - Separate ceiling drywall (location: "ceiling") and wall drywall (location: "walls")
+      - Map to "Ceiling Drywall(sq_ft)" and "Wall Drywall(sq_ft)" in the output
 5.  **Apply Material and Work Scope:** For each room, determine the final `material` and `work_scope` objects.
     * Start with the `Default Scope` for the room's floor as the base.
-    * Apply any `Material Override` and `Work Scope Override` found under the corresponding `[ROOM ENTRY]` section in the `scope_of_work_intake_form`.
+    * Apply any `Material Override` and `Work Scope Override` found under the corresponding `[ROOM ENTRY]` section in the `intake_form`.
     * If a material or work item is listed as "N/A" in the intake form, do not include that key-value pair in the final `material` or `work_scope` object.
     * If a material or work item is not explicitly overridden, use the value from the floor's `Default Scope`.
     * If a key is not present in either the default or override scope, it should not be included in the final output.
@@ -21,161 +24,16 @@ Instructions:
 Input Data:
 
 <measurement_data>
-[
-	{
-		"location": "1st Floor",
-		"rooms": [
-			{
-				"name": "Living Room",
-				"measurements": {
-					"height": 8.00,
-					"wall_area_sqft": 300.00,
-					"ceiling_area_sqft": 150.00,
-					"floor_area_sqft": 150.00,
-					"walls_and_ceiling_area_sqft": 450.00,
-					"flooring_area_sy": 16.67,
-					"ceiling_perimeter_lf": 60.00,
-					"floor_perimeter_lf": 60.00,
-					"openings": [
-						{ "type": "door", "size": "3' x 7'" }
-					]
-				}
-			},
-			{
-				"name": "Kitchen",
-				"measurements": {
-					"height": 8.00,
-					"wall_area_sqft": 250.00,
-					"ceiling_area_sqft": 100.00,
-					"floor_area_sqft": 100.00,
-					"walls_and_ceiling_area_sqft": 350.00,
-					"flooring_area_sy": 11.11,
-					"ceiling_perimeter_lf": 50.00,
-					"floor_perimeter_lf": 50.00,
-					"openings": [
-						{ "type": "door", "size": "3' x 7'" }
-					]
-				}
-			}
-		]
-	},
-	{
-		"location": "Basement",
-		"rooms": [
-			{
-				"name": "Rec Room",
-				"measurements": {
-					"height": 7.50,
-					"wall_area_sqft": 500.00,
-					"ceiling_area_sqft": 200.00,
-					"floor_area_sqft": 200.00,
-					"walls_and_ceiling_area_sqft": 700.00,
-					"flooring_area_sy": 22.22,
-					"ceiling_perimeter_lf": 80.00,
-					"floor_perimeter_lf": 80.00,
-					"openings": []
-				}
-			}
-		]
-	}
-]
+{measurement_data}
 </measurement_data>
 
 <demolition_scope_data>
-{
-	"demolition_scope": {
-		"1st Floor": [
-			{
-				"location": "Living Room",
-				"surfaces": {
-					"floor": { "material": "carpet", "area_sqft": 100.00 },
-					"ceiling": { "material": "drywall", "area_sqft": 50.00 }
-				}
-			},
-			{
-				"location": "Kitchen",
-				"surfaces": {
-					"floor": { "material": "tile", "area_sqft": 20.00 },
-					"ceiling": { "material": "drywall", "area_sqft": 10.00 },
-					"walls": { "material": "drywall", "area_sqft": 30.00 }
-				}
-			}
-		],
-		"Basement": [
-			{
-				"location": "Rec Room",
-				"surfaces": {
-					"floor": { "material": "vinyl", "area_sqft": 150.00 },
-					"ceiling": { "material": "drop-ceiling", "area_sqft": 20.00 }
-				}
-			}
-		]
-	}
-}
+{demolition_scope_data}
 </demolition_scope_data>
 
-<scope_of_work_intake_form>
-Property Address: 456 Elm Street
-Occupancy: Occupied
-
-Default Scope(1st Floor):
-Material:
-	Floor: Laminate Wood
-	Wall: drywall
-	Ceiling: drywall
-	Baseboard: wood
-	Quarter round: wood
-Work:
-	Flooring: Remove & Replace
-	Wall: Patch
-	Ceiling: Patch
-	Baseboard: Remove & Replace
-	Quarter Round: Remove & Replace
-	Paint: Wall, Ceiling
-
-Default Scope(Basement):
-Material:
-	Floor: Vinyl Plank
-	Wall: drywall
-	Ceiling: drop-ceiling
-	Baseboard: vinyl
-	Quarter round: N/A
-Work:
-	Flooring: Remove & Replace
-	Wall: Patch
-	Ceiling: Remove
-	Baseboard: Remove & Replace
-	Quarter Round: N/A
-	Paint: Ceiling
-
-[ROOM ENTRY]
-Room: Living Room
-Material Override:
-	- Floor: hardwood
-	- Wall: N/A
-Work Scope Override:
-	- Flooring: Remove & Replace
-	- Wall: N/A
-Other:
-	- Protection: cover furniture
-	- Detach & Reset: N/A
-
-Room: Kitchen
-Material Override:
-	-Floor: tile
-Work Scope Override:
-	- Flooring: Remove & Replace
-	- Paint: Wall, Ceiling, Baseboard
-
-Room: Rec Room
-Material Override:
-	- Floor: LVT
-Work Scope Override:
-	- Flooring: Remove & Replace
-	- Wall: Remove & Replace
-Other:
-	- Protection: seal off area
-</scope_of_work_intake_form>
+<intake_form>
+{intake_form}
+</intake_form>
 
 <Final Output JSON Format>
 [

@@ -7,11 +7,14 @@ Phase 0: Generate Scope of Work
 """
 import json
 import asyncio
+import time
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 from src.utils.prompt_manager import PromptManager
-from src.models.model_interface import ModelOrchestrator
+from src.models.model_interface import ModelOrchestrator, GPT4Interface, ClaudeInterface, GeminiInterface
+from src.utils.config_loader import ConfigLoader
+from src.utils.logger import get_logger, log_phase_start, log_phase_end, log_error, log_json
 
 class Phase0Processor:
     """
@@ -23,12 +26,15 @@ class Phase0Processor:
         self.config = config or {}
         self.prompt_manager = PromptManager()
         self.orchestrator = ModelOrchestrator()
+        self.logger = get_logger('phase0_processor')
+        self.config_loader = ConfigLoader()
+        self.available_models = {}
     
     async def process(self, 
                      measurement_data: Dict[str, Any],
                      demolition_scope_data: Dict[str, Any],
-                     scope_of_work_intake_form: str,
-                     model_to_use: str = "gpt4",
+                     intake_form: str,
+                     model_to_use: str = "gemini",  # Gemini를 기본값으로 변경 (빠른 응답)
                      project_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Phase 0 실행 - 데이터 병합 및 JSON 생성
@@ -36,14 +42,20 @@ class Phase0Processor:
         Args:
             measurement_data: 측정 데이터 JSON
             demolition_scope_data: 철거 범위 데이터 JSON
-            scope_of_work_intake_form: 작업 범위 입력 양식 텍스트
-            model_to_use: 사용할 AI 모델 (기본: gpt4)
+            intake_form: 작업 범위 입력 양식 텍스트
+            model_to_use: 사용할 AI 모델 (기본: gemini, 옵션: gpt4, claude, gemini)
             project_id: 프로젝트 ID (템플릿 변수용)
         
         Returns:
             병합된 JSON 데이터
         """
-        print(f"Phase 0 시작: Generate Scope of Work - 모델: {model_to_use}")
+        start_time = time.time()
+        log_phase_start(0, "Generate Scope of Work", model=model_to_use)
+        
+        self.logger.info(f"입력 데이터 크기:")
+        self.logger.info(f"  - Measurement: {len(json.dumps(measurement_data))} bytes")
+        self.logger.info(f"  - Demolition: {len(json.dumps(demolition_scope_data))} bytes")
+        self.logger.info(f"  - Intake Form: {len(intake_form)} characters")
         
         try:
             # 1. 프롬프트 로드 및 변수 치환
@@ -58,39 +70,70 @@ class Phase0Processor:
                 variables=prompt_variables
             )
             
+            self.logger.debug(f"프롬프트 템플릿 로드 완료: {len(base_prompt)} characters")
+            
             # 2. 입력 데이터를 프롬프트에 포함
             # 프롬프트의 플레이스홀더를 실제 데이터로 치환
-            full_prompt = base_prompt.replace(
-                '{measurement_data}',
-                json.dumps(measurement_data, indent=2, ensure_ascii=False)
-            ).replace(
-                '{demolition_scope_data}',
-                json.dumps(demolition_scope_data, indent=2, ensure_ascii=False)
-            ).replace(
-                '{scope_of_work_intake_form}',
-                scope_of_work_intake_form
-            )
+            full_prompt = base_prompt
+            
+            # 각 플레이스홀더를 실제 데이터로 치환
+            if '{measurement_data}' in full_prompt:
+                full_prompt = full_prompt.replace(
+                    '{measurement_data}',
+                    json.dumps(measurement_data, indent=2, ensure_ascii=False)
+                )
+                self.logger.debug("measurement_data 치환 완료")
+            else:
+                self.logger.warning("{measurement_data} 플레이스홀더를 찾을 수 없습니다")
+            
+            if '{demolition_scope_data}' in full_prompt:
+                full_prompt = full_prompt.replace(
+                    '{demolition_scope_data}',
+                    json.dumps(demolition_scope_data, indent=2, ensure_ascii=False)
+                )
+                self.logger.debug("demolition_scope_data 치환 완료")
+            else:
+                self.logger.warning("{demolition_scope_data} 플레이스홀더를 찾을 수 없습니다")
+            
+            if '{intake_form}' in full_prompt:
+                full_prompt = full_prompt.replace(
+                    '{intake_form}',
+                    intake_form
+                )
+                self.logger.debug("intake_form 치환 완료")
+            else:
+                self.logger.warning("{intake_form} 플레이스홀더를 찾을 수 없습니다")
+            
+            self.logger.info(f"최종 프롬프트 크기: {len(full_prompt)} characters")
             
             # 3. 단일 모델 실행
-            print(f"AI 모델 호출 중: {model_to_use}")
+            self.logger.info(f"AI 모델 호출 중: {model_to_use}")
             
-            # ModelOrchestrator의 run_single 메서드 사용 (없으면 추가 필요)
-            # 일단 run_parallel을 단일 모델로 실행
-            model_results = await self.orchestrator.run_parallel(
-                prompt=full_prompt,
-                json_data={},  # Phase 0은 프롬프트에 모든 데이터 포함
-                models_to_use=[model_to_use]
+            # 모델 선택 및 직접 호출 (더 빠른 응답을 위해)
+            model_response = await self._call_single_model(
+                model_name=model_to_use,
+                prompt=full_prompt
             )
             
-            if not model_results or len(model_results) == 0:
-                raise ValueError(f"모델 {model_to_use} 실행 실패")
+            if not model_response:
+                raise ValueError(f"모델 {model_to_use} 실행 실패 - 응답 없음")
             
             # 4. 결과 파싱
-            model_response = model_results[0]
             raw_response = model_response.raw_response
             
+            self.logger.debug(f"모델 응답 크기: {len(raw_response)} characters")
+            self.logger.debug(f"응답 처음 500자: {raw_response[:500]}...")
+            
+            # 에러 응답 체크
+            if "Error:" in raw_response or "Request timed out" in raw_response:
+                self.logger.error(f"모델 에러 응답: {raw_response}")
+                raise ValueError(f"모델 응답 에러: {raw_response[:200]}")
+            
             # JSON 응답 추출
+            self.logger.info("JSON 추출 시도 중...")
             merged_json = self._extract_json_from_response(raw_response)
+            
+            self.logger.info(f"JSON 추출 성공: {type(merged_json)}")
             
             # 5. 검증 및 정리
             validated_json = self._validate_and_clean_output(merged_json)
@@ -107,11 +150,20 @@ class Phase0Processor:
                 'success': True
             }
             
-            print(f"Phase 0 완료: {len(validated_json)} 섹션 생성됨")
+            duration = time.time() - start_time
+            log_phase_end(0, "Generate Scope of Work", True, duration)
+            self.logger.info(f"Phase 0 완료: {len(validated_json)} 섹션 생성됨")
+            
             return result
             
         except Exception as e:
-            print(f"Phase 0 오류: {e}")
+            duration = time.time() - start_time
+            log_phase_end(0, "Generate Scope of Work", False, duration)
+            log_error('phase0_processor', e, {
+                'model': model_to_use,
+                'project_id': project_id
+            })
+            
             return {
                 'phase': 0,
                 'phase_name': 'Generate Scope of Work',
@@ -120,6 +172,103 @@ class Phase0Processor:
                 'error': str(e),
                 'success': False
             }
+    
+    async def _call_single_model(self, model_name: str, prompt: str) -> Any:
+        """
+        단일 모델 직접 호출 (오케스트레이터 대신 직접 호출로 속도 개선)
+        
+        Args:
+            model_name: 모델 이름 (gpt4, claude, gemini)
+            prompt: 프롬프트
+            
+        Returns:
+            ModelResponse 객체
+        """
+        from src.models.data_models import ModelResponse
+        import google.generativeai as genai
+        
+        try:
+            if model_name.lower() == 'gemini':
+                # Gemini 직접 호출 (가장 빠름)
+                api_keys = self.config_loader.get_api_keys()
+                api_key = api_keys.get('google')
+                if not api_key:
+                    raise ValueError("Google API 키가 설정되지 않았습니다.")
+                
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel('gemini-1.5-flash')  # 빠른 모델
+                
+                self.logger.info("Gemini 1.5 Flash 모델 사용")
+                
+                # 동기 호출을 비동기로 래핑
+                response = await asyncio.to_thread(
+                    model.generate_content,
+                    prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        max_output_tokens=3000,
+                        temperature=0.1
+                    )
+                )
+                
+                return ModelResponse(
+                    model_name='gemini-1.5-flash',
+                    raw_response=response.text,
+                    processing_time=0,
+                    total_work_items=0,
+                    room_estimates=[],
+                    confidence_self_assessment=0.85
+                )
+                
+            elif model_name.lower() == 'gpt4':
+                # GPT-4 호출
+                api_keys = self.config_loader.get_api_keys()
+                api_key = api_keys.get('openai')
+                if not api_key:
+                    raise ValueError("OpenAI API 키가 설정되지 않았습니다.")
+                
+                model = GPT4Interface(api_key)
+                return await model.call_model(prompt, {})
+                
+            elif model_name.lower() == 'claude':
+                # Claude 호출
+                api_keys = self.config_loader.get_api_keys()
+                api_key = api_keys.get('anthropic')
+                if not api_key:
+                    raise ValueError("Anthropic API 키가 설정되지 않았습니다.")
+                
+                model = ClaudeInterface(api_key)
+                return await model.call_model(prompt, {})
+                
+            else:
+                # 지원하지 않는 모델인 경우 기존 오케스트레이터 사용
+                self.logger.warning(f"알 수 없는 모델 {model_name}, 오케스트레이터 사용")
+                model_results = await self.orchestrator.run_parallel(
+                    prompt=prompt,
+                    json_data={},
+                    model_names=[model_name]
+                )
+                return model_results[0] if model_results else None
+                
+        except asyncio.TimeoutError:
+            self.logger.error(f"{model_name} 타임아웃")
+            return ModelResponse(
+                model_name=model_name,
+                raw_response="Error: Timeout",
+                processing_time=0,
+                total_work_items=0,
+                room_estimates=[],
+                confidence_self_assessment=0.0
+            )
+        except Exception as e:
+            self.logger.error(f"{model_name} 호출 오류: {e}")
+            return ModelResponse(
+                model_name=model_name,
+                raw_response=f"Error: {str(e)}",
+                processing_time=0,
+                total_work_items=0,
+                room_estimates=[],
+                confidence_self_assessment=0.0
+            )
     
     def _extract_json_from_response(self, raw_response: str) -> Any:
         """
@@ -131,36 +280,58 @@ class Phase0Processor:
         Returns:
             파싱된 JSON 객체
         """
+        import re
+        
+        self.logger.debug("JSON 추출 시작...")
+        
+        # 1. 직접 JSON 파싱 시도
         try:
-            # 직접 JSON 파싱 시도
-            return json.loads(raw_response)
-        except json.JSONDecodeError:
-            # JSON 블록 찾기 (```json ... ``` 형태)
-            import re
-            json_pattern = r'```json\s*([\s\S]*?)\s*```'
-            match = re.search(json_pattern, raw_response)
-            
-            if match:
-                json_str = match.group(1)
+            self.logger.debug("직접 JSON 파싱 시도")
+            result = json.loads(raw_response)
+            self.logger.debug("직접 JSON 파싱 성공")
+            return result
+        except json.JSONDecodeError as e:
+            self.logger.debug(f"직접 파싱 실패: {e}")
+        
+        # 2. JSON 블록 찾기 (```json ... ``` 형태)
+        json_pattern = r'```json\s*([\s\S]*?)\s*```'
+        match = re.search(json_pattern, raw_response)
+        
+        if match:
+            json_str = match.group(1)
+            self.logger.debug(f"JSON 블록 발견: {len(json_str)} characters")
+            try:
                 return json.loads(json_str)
+            except json.JSONDecodeError as e:
+                self.logger.debug(f"JSON 블록 파싱 실패: {e}")
+        
+        # 3. [ 또는 { 로 시작하는 부분 찾기
+        json_start_idx = raw_response.find('[')
+        if json_start_idx == -1:
+            json_start_idx = raw_response.find('{')
+        
+        if json_start_idx != -1:
+            json_str = raw_response[json_start_idx:]
             
-            # [ 또는 { 로 시작하는 부분 찾기
-            json_start_idx = raw_response.find('[')
-            if json_start_idx == -1:
-                json_start_idx = raw_response.find('{')
+            # 마지막 ] 또는 } 찾기
+            if json_str.startswith('['):
+                json_end_idx = json_str.rfind(']') + 1
+            else:
+                json_end_idx = json_str.rfind('}') + 1
             
-            if json_start_idx != -1:
-                json_str = raw_response[json_start_idx:]
-                # 마지막 ] 또는 } 찾기
-                if json_str.startswith('['):
-                    json_end_idx = json_str.rfind(']') + 1
-                else:
-                    json_end_idx = json_str.rfind('}') + 1
-                
-                json_str = json_str[:json_end_idx]
+            json_str = json_str[:json_end_idx]
+            
+            self.logger.debug(f"JSON 구조 발견 (위치 {json_start_idx}): {len(json_str)} characters")
+            
+            try:
                 return json.loads(json_str)
-            
-            raise ValueError("응답에서 유효한 JSON을 찾을 수 없습니다")
+            except json.JSONDecodeError as e:
+                self.logger.error(f"JSON 파싱 최종 실패: {e}")
+                self.logger.debug(f"파싱 시도한 문자열 (처음 500자): {json_str[:500]}")
+        
+        self.logger.error("응답에서 JSON을 찾을 수 없음")
+        self.logger.debug(f"전체 응답 (처음 1000자): {raw_response[:1000]}")
+        raise ValueError("응답에서 유효한 JSON을 찾을 수 없습니다")
     
     def _validate_and_clean_output(self, json_data: Any) -> Any:
         """

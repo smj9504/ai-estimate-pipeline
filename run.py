@@ -138,12 +138,12 @@ class AIEstimatePipelineRunner:
         print(f"[OK] Static: {static_dir}")
         
         if deps_ok and config_ok:
-            print("\n✅ 프로젝트 설정이 완료되었습니다!")
+            print("\n[OK] 프로젝트 설정이 완료되었습니다!")
             print("\n서버를 실행하려면:")
             print("  python run.py")
             return True
         else:
-            print("\n❌ 설정을 완료한 후 다시 시도하세요.")
+            print("\n[ERROR] 설정을 완료한 후 다시 시도하세요.")
             return False
             
     def run_tests(self):
@@ -157,25 +157,25 @@ class AIEstimatePipelineRunner:
             if sample_file.exists():
                 with open(sample_file, 'r') as f:
                     data = json.load(f)
-                print(f"✅ 샘플 데이터 로드 성공")
+                print(f"[OK] 샘플 데이터 로드 성공")
                 if isinstance(data, list) and len(data) > 0:
                     print(f"   프로젝트: {data[0].get('Jobsite', 'N/A')}")
             else:
-                print(f"❌ 샘플 파일이 없습니다: {sample_file}")
+                print(f"[ERROR] 샘플 파일이 없습니다: {sample_file}")
         except Exception as e:
-            print(f"❌ 샘플 데이터 로드 실패: {e}")
+            print(f"[ERROR] 샘플 데이터 로드 실패: {e}")
             
         print("\n테스트 2: 설정 파일 로드")
         try:
             from src.utils.config_loader import ConfigLoader
             loader = ConfigLoader()
             config = loader.load_config()
-            print("✅ 설정 로드 성공")
+            print("[OK] 설정 로드 성공")
             print(f"   모델 가중치: GPT-4({config.model_weights.gpt4}), "
                   f"Claude({config.model_weights.claude}), "
                   f"Gemini({config.model_weights.gemini})")
         except Exception as e:
-            print(f"❌ 설정 로드 실패: {e}")
+            print(f"[ERROR] 설정 로드 실패: {e}")
             
         print("\n테스트 완료!")
         

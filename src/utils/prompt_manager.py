@@ -80,10 +80,27 @@ class PromptManager:
         
         return prompt_text
     
+    def load_system_prompt(self) -> str:
+        """
+        시스템 프롬프트 로드
+        
+        Returns:
+            시스템 프롬프트 텍스트
+        """
+        system_prompt_path = self.prompts_dir / "system_prompt.txt"
+        
+        if not system_prompt_path.exists():
+            # 시스템 프롬프트가 없으면 빈 문자열 반환
+            return ""
+        
+        with open(system_prompt_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    
     def load_prompt_with_variables(self, 
                                   phase_number: int,
                                   variables: Optional[Dict[str, Any]] = None,
-                                  version: Optional[str] = None) -> str:
+                                  version: Optional[str] = None,
+                                  include_system_prompt: bool = True) -> str:
         """
         템플릿 변수를 치환하여 프롬프트 로드
         
@@ -91,6 +108,7 @@ class PromptManager:
             phase_number: Phase 번호
             variables: 치환할 변수 딕셔너리
             version: 프롬프트 버전
+            include_system_prompt: 시스템 프롬프트 포함 여부
         
         Returns:
             변수가 치환된 프롬프트 텍스트
@@ -99,8 +117,44 @@ class PromptManager:
             프롬프트에 {project_id}, {client_name} 같은 변수 포함 시
             variables={'project_id': 'PRJ001', 'client_name': 'John Doe'}로 치환
         """
-        # 프롬프트 로드
+        # Phase별 프롬프트 로드
         prompt_text = self.load_prompt(phase_number, version)
+        
+        # 시스템 프롬프트 포함 옵션
+        if include_system_prompt:
+            system_prompt = self.load_system_prompt()
+            if system_prompt:
+                # Phase 정보로 시스템 프롬프트 변수 치환
+                phase_descriptions = {
+                    0: "Generate Scope of Work Data",
+                    1: "Merge Measurement & Work Scope",
+                    2: "Quantity Survey",
+                    3: "Market Research",
+                    4: "Timeline & Disposal Calculation",
+                    5: "Final Estimate Completion",
+                    6: "Formatting to JSON"
+                }
+                
+                phase_instruction = {
+                    0: "Combine measurement, demolition, and intake form data into a unified JSON format.",
+                    1: "Merge measurements with work scope requirements. Apply Remove & Replace logic.",
+                    2: "Calculate detailed quantities for all work items based on measurements and scope.",
+                    3: "Research current material and labor costs specific to the DMV area.",
+                    4: "Estimate project timeline and calculate disposal costs.",
+                    5: "Compile comprehensive estimate with all costs and details.",
+                    6: "Format final estimate to client-required JSON structure."
+                }
+                
+                system_prompt = system_prompt.replace(
+                    "{phase_number}", str(phase_number)
+                ).replace(
+                    "{phase_description}", phase_descriptions.get(phase_number, f"Phase {phase_number}")
+                ).replace(
+                    "{phase_specific_instruction}", phase_instruction.get(phase_number, "")
+                )
+                
+                # 시스템 프롬프트를 Phase 프롬프트 앞에 추가
+                prompt_text = system_prompt + "\n\n" + prompt_text
         
         # 변수 병합 (기본값 + 사용자 제공 값)
         all_variables = {**self.default_variables}
@@ -130,11 +184,32 @@ class PromptManager:
         Returns:
             치환되지 않은 변수 이름 리스트
         """
-        pattern = r'\{([^}]+)\}'
-        matches = re.findall(pattern, text)
-        # JSON 데이터 플레이스홀더는 제외 (예: {measurement_data})
-        excluded = ['measurement_data', 'demolition_scope_data', 'scope_of_work_intake_form']
-        return [m for m in matches if m not in excluded]
+        # JSON 데이터 블록을 먼저 제거 (중괄호 내용이 JSON 형태인 경우)
+        # JSON 블록은 여러 줄에 걸쳐 있고, 들여쓰기가 있으며, : 또는 [ 를 포함
+        temp_text = text
+        
+        # JSON 블록 패턴 제거 (여러 줄 JSON 데이터)
+        json_block_pattern = r'\{[^{}]*[\[\]":,\n\t][^{}]*\}'
+        temp_text = re.sub(json_block_pattern, '', temp_text, flags=re.MULTILINE | re.DOTALL)
+        
+        # 템플릿 변수 패턴 찾기 (단순한 {variable_name} 형태만)
+        # 변수명은 알파벳, 숫자, 언더스코어만 허용
+        pattern = r'\{([a-zA-Z_][a-zA-Z0-9_]*)\}'
+        matches = re.findall(pattern, temp_text)
+        
+        # JSON 데이터 플레이스홀더와 시스템 프롬프트 변수는 제외
+        excluded = [
+            'measurement_data', 
+            'demolition_scope_data', 
+            'intake_form',
+            'phase_number',
+            'phase_description',
+            'phase_specific_instruction'
+        ]
+        
+        # 중복 제거 및 제외 항목 필터링
+        unique_matches = list(set(m for m in matches if m not in excluded))
+        return unique_matches
     
     def list_available_prompts(self) -> Dict[int, List[str]]:
         """
@@ -203,7 +278,7 @@ class PromptManager:
             # Phase별 특정 요구사항 체크
             if phase_number == 0:
                 # Phase 0은 데이터 병합 관련 키워드 필요
-                required_keywords = ['measurement_data', 'demolition_scope_data', 'scope_of_work_intake_form']
+                required_keywords = ['measurement_data', 'demolition_scope_data', 'intake_form']
                 for keyword in required_keywords:
                     if keyword not in prompt_text:
                         validation_result['errors'].append(f"필수 키워드 누락: {keyword}")

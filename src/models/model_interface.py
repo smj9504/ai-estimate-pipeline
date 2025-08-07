@@ -11,6 +11,7 @@ import google.generativeai as genai
 
 from src.models.data_models import ModelResponse
 from src.utils.config_loader import ConfigLoader
+from src.utils.logger import get_logger, log_model_call, log_error
 
 class AIModelInterface(ABC):
     """AI 모델 인터페이스 추상 클래스"""
@@ -85,6 +86,7 @@ class GPT4Interface(AIModelInterface):
     def __init__(self, api_key: str):
         super().__init__(api_key, "gpt-4")
         self.client = openai.AsyncOpenAI(api_key=api_key)
+        self.logger = get_logger('gpt4_interface')
     
     async def call_model(self, prompt: str, json_data: Dict[str, Any]) -> ModelResponse:
         """GPT-4 모델 호출"""
@@ -92,6 +94,10 @@ class GPT4Interface(AIModelInterface):
         
         try:
             full_prompt = self._prepare_prompt(prompt, json_data)
+            
+            self.logger.info("GPT-4 API 호출 시작")
+            self.logger.debug(f"프롬프트 크기: {len(full_prompt)} characters")
+            log_model_call("gpt-4", len(full_prompt))
             
             response = await self.client.chat.completions.create(
                 model="gpt-4",
@@ -108,6 +114,11 @@ class GPT4Interface(AIModelInterface):
             )
             
             raw_response = response.choices[0].message.content
+            response_time = time.time() - start_time
+            
+            self.logger.info(f"GPT-4 응답 수신 (소요시간: {response_time:.2f}초)")
+            self.logger.debug(f"응답 크기: {len(raw_response)} characters")
+            
             processed_data = self._extract_response_data(raw_response)
             
             return ModelResponse(
@@ -120,7 +131,8 @@ class GPT4Interface(AIModelInterface):
             )
             
         except Exception as e:
-            print(f"GPT-4 호출 오류: {e}")
+            self.logger.error(f"GPT-4 호출 오류: {e}")
+            log_error('gpt4_interface', e, {'prompt_length': len(full_prompt) if 'full_prompt' in locals() else 0})
             return ModelResponse(
                 model_name=self.model_name,
                 room_estimates=[],
@@ -136,6 +148,7 @@ class ClaudeInterface(AIModelInterface):
     def __init__(self, api_key: str):
         super().__init__(api_key, "claude-3-sonnet")
         self.client = Anthropic(api_key=api_key)
+        self.logger = get_logger('claude_interface')
     
     async def call_model(self, prompt: str, json_data: Dict[str, Any]) -> ModelResponse:
         """Claude 모델 호출"""
@@ -143,6 +156,10 @@ class ClaudeInterface(AIModelInterface):
         
         try:
             full_prompt = self._prepare_prompt(prompt, json_data)
+            
+            self.logger.info("Claude API 호출 시작")
+            self.logger.debug(f"프롬프트 크기: {len(full_prompt)} characters")
+            log_model_call("claude-3-sonnet", len(full_prompt))
             
             # asyncio.to_thread를 사용해서 동기 API를 비동기로 실행
             response = await asyncio.to_thread(
@@ -154,6 +171,11 @@ class ClaudeInterface(AIModelInterface):
             )
             
             raw_response = response.content[0].text
+            response_time = time.time() - start_time
+            
+            self.logger.info(f"Claude 응답 수신 (소요시간: {response_time:.2f}초)")
+            self.logger.debug(f"응답 크기: {len(raw_response)} characters")
+            
             processed_data = self._extract_response_data(raw_response)
             
             return ModelResponse(
@@ -166,7 +188,8 @@ class ClaudeInterface(AIModelInterface):
             )
             
         except Exception as e:
-            print(f"Claude 호출 오류: {e}")
+            self.logger.error(f"Claude 호출 오류: {e}")
+            log_error('claude_interface', e, {'prompt_length': len(full_prompt) if 'full_prompt' in locals() else 0})
             return ModelResponse(
                 model_name=self.model_name,
                 room_estimates=[],
@@ -183,6 +206,7 @@ class GeminiInterface(AIModelInterface):
         super().__init__(api_key, "gemini-pro")
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel('gemini-pro')
+        self.logger = get_logger('gemini_interface')
     
     async def call_model(self, prompt: str, json_data: Dict[str, Any]) -> ModelResponse:
         """Gemini 모델 호출"""
@@ -190,6 +214,10 @@ class GeminiInterface(AIModelInterface):
         
         try:
             full_prompt = self._prepare_prompt(prompt, json_data)
+            
+            self.logger.info("Gemini API 호출 시작")
+            self.logger.debug(f"프롬프트 크기: {len(full_prompt)} characters")
+            log_model_call("gemini-pro", len(full_prompt))
             
             # asyncio.to_thread를 사용해서 동기 API를 비동기로 실행
             response = await asyncio.to_thread(
@@ -202,6 +230,11 @@ class GeminiInterface(AIModelInterface):
             )
             
             raw_response = response.text
+            response_time = time.time() - start_time
+            
+            self.logger.info(f"Gemini 응답 수신 (소요시간: {response_time:.2f}초)")
+            self.logger.debug(f"응답 크기: {len(raw_response)} characters")
+            
             processed_data = self._extract_response_data(raw_response)
             
             return ModelResponse(
@@ -214,7 +247,8 @@ class GeminiInterface(AIModelInterface):
             )
             
         except Exception as e:
-            print(f"Gemini 호출 오류: {e}")
+            self.logger.error(f"Gemini 호출 오류: {e}")
+            log_error('gemini_interface', e, {'prompt_length': len(full_prompt) if 'full_prompt' in locals() else 0})
             return ModelResponse(
                 model_name=self.model_name,
                 room_estimates=[],
@@ -230,29 +264,39 @@ class ModelOrchestrator:
     def __init__(self):
         self.config_loader = ConfigLoader()
         self.api_keys = self.config_loader.get_api_keys()
+        self.logger = get_logger('model_orchestrator')
         
         # 모델 인터페이스 초기화
         self.models = {}
         
         if self.api_keys['openai']:
             self.models['gpt4'] = GPT4Interface(self.api_keys['openai'])
+            self.logger.info("GPT-4 모델 초기화 완료")
         
         if self.api_keys['anthropic']:
             self.models['claude'] = ClaudeInterface(self.api_keys['anthropic'])
+            self.logger.info("Claude 모델 초기화 완료")
         
         if self.api_keys['google']:
             self.models['gemini'] = GeminiInterface(self.api_keys['google'])
+            self.logger.info("Gemini 모델 초기화 완료")
+        
+        self.logger.info(f"총 {len(self.models)}개 모델 사용 가능")
     
     async def run_single_model(self, model_name: str, prompt: str, json_data: Dict[str, Any]) -> Optional[ModelResponse]:
         """단일 모델 실행"""
         if model_name not in self.models:
-            print(f"모델 {model_name}을 사용할 수 없습니다. (API 키 확인)")
+            self.logger.warning(f"모델 {model_name}을 사용할 수 없습니다. (API 키 확인)")
             return None
         
         try:
-            return await self.models[model_name].call_model(prompt, json_data)
+            self.logger.debug(f"모델 {model_name} 실행 시작")
+            result = await self.models[model_name].call_model(prompt, json_data)
+            self.logger.debug(f"모델 {model_name} 실행 완료")
+            return result
         except Exception as e:
-            print(f"모델 {model_name} 실행 오류: {e}")
+            self.logger.error(f"모델 {model_name} 실행 오류: {e}")
+            log_error('model_orchestrator', e, {'model': model_name})
             return None
     
     async def run_parallel(self, prompt: str, json_data: Dict[str, Any], 
@@ -265,10 +309,10 @@ class ModelOrchestrator:
         available_models = [name for name in model_names if name in self.models]
         
         if not available_models:
-            print("사용 가능한 모델이 없습니다.")
+            self.logger.error("사용 가능한 모델이 없습니다.")
             return []
         
-        print(f"모델 실행 시작: {available_models}")
+        self.logger.info(f"모델 병렬 실행 시작: {available_models}")
         
         # 병렬 실행
         tasks = [
@@ -280,13 +324,14 @@ class ModelOrchestrator:
         
         # 성공한 결과만 필터링
         successful_results = []
-        for result in results:
+        for i, result in enumerate(results):
             if isinstance(result, ModelResponse):
                 successful_results.append(result)
+                self.logger.info(f"✓ {available_models[i]} 모델 성공")
             elif isinstance(result, Exception):
-                print(f"모델 실행 중 예외 발생: {result}")
+                self.logger.error(f"✗ {available_models[i]} 모델 실행 중 예외: {result}")
         
-        print(f"성공한 모델 수: {len(successful_results)}/{len(available_models)}")
+        self.logger.info(f"모델 실행 완료: {len(successful_results)}/{len(available_models)} 성공")
         return successful_results
     
     def get_available_models(self) -> List[str]:
@@ -298,6 +343,12 @@ class ModelOrchestrator:
         validation_results = {}
         
         for model_name, api_key in self.api_keys.items():
-            validation_results[model_name] = bool(api_key and api_key.strip())
+            is_valid = bool(api_key and api_key.strip())
+            validation_results[model_name] = is_valid
+            
+            if is_valid:
+                self.logger.debug(f"✓ {model_name} API 키 유효")
+            else:
+                self.logger.warning(f"✗ {model_name} API 키 없음")
         
         return validation_results

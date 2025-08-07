@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Estimation Pipeline - Phase Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .header p {
+            opacity: 0.9;
+        }
+        
+        /* Phase Progress Bar */
+        .phase-progress {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .progress-steps::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 5%;
+            right: 5%;
+            height: 2px;
+            background: #e2e8f0;
+            z-index: 0;
+        }
+        
+        .progress-line {
+            position: absolute;
+            top: 20px;
+            left: 5%;
+            height: 2px;
+            background: #667eea;
+            z-index: 1;
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+        
+        .step {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            flex: 1;
+        }
+        
+        .step-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            margin: 0 auto 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #64748b;
+            transition: all 0.3s ease;
+        }
+        
+        .step.active .step-circle {
+            background: #667eea;
+            color: white;
+            transform: scale(1.1);
+        }
+        
+        .step.completed .step-circle {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .step-label {
+            font-size: 12px;
+            color: #64748b;
+        }
+        
+        .step.active .step-label {
+            color: #667eea;
+            font-weight: 600;
+        }
+        
+        /* Main Content Area */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        /* Input Panel */
+        .input-panel, .output-panel {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .panel-header {
+            background: #4a5568;
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .panel-body {
+            padding: 30px;
+        }
+        
+        /* Phase 0 Input Forms */
+        .input-section {
+            margin-bottom: 25px;
+        }
+        
+        .input-section h4 {
+            margin-bottom: 10px;
+            color: #4a5568;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .file-upload {
+            border: 2px dashed #cbd5e0;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .file-upload:hover, .file-upload.dragover {
+            border-color: #667eea;
+            background: #f8fafc;
+        }
+        
+        .file-upload input[type="file"] {
+            display: none;
+        }
+        
+        .file-status {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #48bb78;
+        }
+        
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            resize: vertical;
+            min-height: 150px;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+        
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #38a169;
+        }
+        
+        .btn-secondary {
+            background: #64748b;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #475569;
+        }
+        
+        .btn:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
+        /* Output Display */
+        .result-viewer {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 20px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .result-viewer pre {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .json-viewer {
+            background: #1e293b;
+            color: #f1f5f9;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+        
+        /* Status Messages */
+        .status-message {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status-info {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .status-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-warning {
+            background: #fed7aa;
+            color: #92400e;
+        }
+        
+        .status-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        /* Loading Spinner */
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0,0,0,0.1);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Session Info */
+        .session-info {
+            background: #f1f5f9;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #475569;
+            margin-bottom: 20px;
+        }
+        
+        .session-info code {
+            background: #e2e8f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        
+        /* Model Selection */
+        .model-selection {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .model-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .model-checkbox input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            color: #64748b;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+        
+        .tab:hover {
+            color: #475569;
+        }
+        
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Approval Section */
+        .approval-section {
+            background: #fef3c7;
+            border: 1px solid #fbbf24;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .approval-section h4 {
+            color: #78350f;
+            margin-bottom: 15px;
+        }
+        
+        .approval-buttons {
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>AI Estimation Pipeline</h1>
+            <p>Phase-based Multi-Model Processing System</p>
+        </div>
+        
+        <!-- Phase Progress Bar -->
+        <div class="phase-progress">
+            <div class="progress-steps">
+                <div class="progress-line" id="progressLine"></div>
+                <div class="step active" data-phase="0">
+                    <div class="step-circle">0</div>
+                    <div class="step-label">Data Prep</div>
+                </div>
+                <div class="step" data-phase="1">
+                    <div class="step-circle">1</div>
+                    <div class="step-label">Merge</div>
+                </div>
+                <div class="step" data-phase="2">
+                    <div class="step-circle">2</div>
+                    <div class="step-label">Quantity</div>
+                </div>
+                <div class="step" data-phase="3">
+                    <div class="step-circle">3</div>
+                    <div class="step-label">Market</div>
+                </div>
+                <div class="step" data-phase="4">
+                    <div class="step-circle">4</div>
+                    <div class="step-label">Timeline</div>
+                </div>
+                <div class="step" data-phase="5">
+                    <div class="step-circle">5</div>
+                    <div class="step-label">Final</div>
+                </div>
+                <div class="step" data-phase="6">
+                    <div class="step-circle">6</div>
+                    <div class="step-label">Format</div>
+                </div>
+            </div>
+            
+            <div class="session-info" id="sessionInfo" style="display: none;">
+                Session ID: <code id="sessionId">-</code> | 
+                Current Phase: <strong id="currentPhase">0</strong> | 
+                Status: <span id="sessionStatus">Ready</span>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Input Panel -->
+            <div class="input-panel">
+                <div class="panel-header">
+                    <h3>Input Data</h3>
+                    <span id="inputPhaseLabel">Phase 0: Data Preparation</span>
+                </div>
+                <div class="panel-body">
+                    <!-- Phase 0 Inputs -->
+                    <div id="phase0Input" class="phase-input">
+                        <div class="input-section">
+                            <h4>
+                                1. Measurement Data (JSON)
+                                <span class="file-status" id="measurementStatus"></span>
+                            </h4>
+                            <div class="file-upload" id="measurementUpload">
+                                <input type="file" id="measurementFile" accept=".json">
+                                <label for="measurementFile">
+                                    Click or drag to upload measurement JSON
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="input-section">
+                            <h4>
+                                2. Demo'd Data (JSON)
+                                <span class="file-status" id="demoStatus"></span>
+                            </h4>
+                            <div class="file-upload" id="demoUpload">
+                                <input type="file" id="demoFile" accept=".json">
+                                <label for="demoFile">
+                                    Click or drag to upload demo'd JSON
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="input-section">
+                            <h4>3. Intake Form Data (Text)</h4>
+                            <textarea id="intakeFormData" placeholder="Enter intake form data here...
+Example:
+Property Type: Single Family Home
+Location: Arlington, VA
+Damage Type: Water Damage
+Affected Areas: Kitchen, Living Room
+Special Instructions: High-end finishes required"></textarea>
+                        </div>
+                        
+                        <div class="action-buttons">
+                            <button class="btn btn-primary" id="startPipelineBtn" onclick="startPipeline()">
+                                Start Pipeline (Phase 0)
+                            </button>
+                            <button class="btn btn-secondary" onclick="clearInputs()">
+                                Clear All
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Phase 1-2 Model Selection -->
+                    <div id="phaseModelSelection" class="phase-input" style="display: none;">
+                        <h4>Select AI Models for Processing:</h4>
+                        <div class="model-selection">
+                            <div class="model-checkbox">
+                                <input type="checkbox" id="modelGpt4" value="gpt4" checked>
+                                <label for="modelGpt4">GPT-4</label>
+                            </div>
+                            <div class="model-checkbox">
+                                <input type="checkbox" id="modelClaude" value="claude" checked>
+                                <label for="modelClaude">Claude</label>
+                            </div>
+                            <div class="model-checkbox">
+                                <input type="checkbox" id="modelGemini" value="gemini" checked>
+                                <label for="modelGemini">Gemini</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Output Panel -->
+            <div class="output-panel">
+                <div class="panel-header">
+                    <h3>Output & Results</h3>
+                    <span id="outputPhaseLabel">Waiting to start...</span>
+                </div>
+                <div class="panel-body">
+                    <!-- Tabs for different views -->
+                    <div class="tabs">
+                        <button class="tab active" onclick="switchTab('result')">Result</button>
+                        <button class="tab" onclick="switchTab('raw')">Raw JSON</button>
+                        <button class="tab" onclick="switchTab('logs')">Logs</button>
+                    </div>
+                    
+                    <!-- Tab Contents -->
+                    <div id="resultTab" class="tab-content active">
+                        <div id="statusMessages"></div>
+                        <div class="result-viewer" id="resultViewer">
+                            <p style="color: #94a3b8; text-align: center;">
+                                Results will appear here after processing...
+                            </p>
+                        </div>
+                        
+                        <!-- Approval Section -->
+                        <div id="approvalSection" class="approval-section" style="display: none;">
+                            <h4>Review and Approve Phase Result</h4>
+                            <p>Please review the output above. You can approve or modify before proceeding.</p>
+                            <div class="approval-buttons">
+                                <button class="btn btn-success" onclick="approvePhase()">
+                                    Approve & Continue
+                                </button>
+                                <button class="btn btn-secondary" onclick="modifyPhase()">
+                                    Modify Result
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="rawTab" class="tab-content">
+                        <div class="json-viewer">
+                            <pre id="rawJsonViewer">{}</pre>
+                        </div>
+                    </div>
+                    
+                    <div id="logsTab" class="tab-content">
+                        <div class="result-viewer">
+                            <pre id="logsViewer">System ready...</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global State Management
+        let pipelineState = {
+            sessionId: null,
+            currentPhase: -1,
+            phaseResults: {},
+            measurementData: null,
+            demoData: null,
+            intakeData: null,
+            isProcessing: false
+        };
+        
+        // Logging function
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logsViewer = document.getElementById('logsViewer');
+            const logEntry = `[${timestamp}] ${message}\n`;
+            logsViewer.textContent += logEntry;
+            logsViewer.scrollTop = logsViewer.scrollHeight;
+            
+            console.log(`[${type}] ${message}`);
+        }
+        
+        // File Upload Handlers
+        function setupFileUploads() {
+            // Measurement file
+            const measurementUpload = document.getElementById('measurementUpload');
+            const measurementFile = document.getElementById('measurementFile');
+            
+            measurementUpload.addEventListener('click', () => measurementFile.click());
+            measurementFile.addEventListener('change', (e) => handleFileUpload(e, 'measurement'));
+            
+            // Demo file
+            const demoUpload = document.getElementById('demoUpload');
+            const demoFile = document.getElementById('demoFile');
+            
+            demoUpload.addEventListener('click', () => demoFile.click());
+            demoFile.addEventListener('change', (e) => handleFileUpload(e, 'demo'));
+            
+            // Drag and drop
+            setupDragAndDrop(measurementUpload, 'measurement');
+            setupDragAndDrop(demoUpload, 'demo');
+        }
+        
+        function setupDragAndDrop(element, type) {
+            element.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                element.classList.add('dragover');
+            });
+            
+            element.addEventListener('dragleave', () => {
+                element.classList.remove('dragover');
+            });
+            
+            element.addEventListener('drop', (e) => {
+                e.preventDefault();
+                element.classList.remove('dragover');
+                const file = e.dataTransfer.files[0];
+                if (file && file.name.endsWith('.json')) {
+                    processFile(file, type);
+                }
+            });
+        }
+        
+        async function handleFileUpload(event, type) {
+            const file = event.target.files[0];
+            if (file) {
+                await processFile(file, type);
+            }
+        }
+        
+        async function processFile(file, type) {
+            try {
+                const text = await file.text();
+                const data = JSON.parse(text);
+                
+                if (type === 'measurement') {
+                    pipelineState.measurementData = data;
+                    document.getElementById('measurementStatus').textContent = '✓ Loaded';
+                    document.getElementById('measurementStatus').style.color = '#48bb78';
+                    log(`Measurement data loaded: ${file.name}`);
+                } else if (type === 'demo') {
+                    pipelineState.demoData = data;
+                    document.getElementById('demoStatus').textContent = '✓ Loaded';
+                    document.getElementById('demoStatus').style.color = '#48bb78';
+                    log(`Demo data loaded: ${file.name}`);
+                }
+                
+                showStatus('success', `${type} data loaded successfully`);
+            } catch (error) {
+                showStatus('error', `Failed to load ${type} data: ${error.message}`);
+                log(`Error loading ${type} data: ${error.message}`, 'error');
+            }
+        }
+        
+        // Status Messages
+        function showStatus(type, message) {
+            const statusDiv = document.getElementById('statusMessages');
+            const statusClass = `status-${type}`;
+            
+            statusDiv.innerHTML = `
+                <div class="status-message ${statusClass}">
+                    ${type === 'info' ? '📝' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '❌'}
+                    ${message}
+                </div>
+            `;
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 5000);
+        }
+        
+        // Tab Switching
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(`${tabName}Tab`).classList.add('active');
+        }
+        
+        // Phase Progress Update
+        function updatePhaseProgress(phaseNumber) {
+            // Update steps
+            document.querySelectorAll('.step').forEach((step, index) => {
+                step.classList.remove('active', 'completed');
+                if (index < phaseNumber) {
+                    step.classList.add('completed');
+                } else if (index === phaseNumber) {
+                    step.classList.add('active');
+                }
+            });
+            
+            // Update progress line
+            const progressLine = document.getElementById('progressLine');
+            const progressPercentage = (phaseNumber / 6) * 100;
+            progressLine.style.width = `${progressPercentage}%`;
+            
+            // Update labels
+            document.getElementById('inputPhaseLabel').textContent = `Phase ${phaseNumber}`;
+            document.getElementById('outputPhaseLabel').textContent = `Phase ${phaseNumber} Output`;
+            
+            // Update session info
+            if (pipelineState.sessionId) {
+                document.getElementById('sessionInfo').style.display = 'block';
+                document.getElementById('sessionId').textContent = pipelineState.sessionId.substring(0, 8) + '...';
+                document.getElementById('currentPhase').textContent = phaseNumber;
+            }
+        }
+        
+        // Pipeline Control Functions
+        async function startPipeline() {
+            // Validation
+            if (!pipelineState.measurementData) {
+                showStatus('error', 'Please upload measurement data');
+                return;
+            }
+            if (!pipelineState.demoData) {
+                showStatus('error', 'Please upload demo data');
+                return;
+            }
+            
+            const intakeText = document.getElementById('intakeFormData').value.trim();
+            if (!intakeText) {
+                showStatus('error', 'Please enter intake form data');
+                return;
+            }
+            
+            pipelineState.intakeData = intakeText;
+            
+            // Prepare Phase 0 input data
+            const phase0Input = {
+                measurement_data: pipelineState.measurementData,
+                demolition_scope_data: pipelineState.demoData,
+                intake_form: pipelineState.intakeData
+            };
+            
+            try {
+                showStatus('info', 'Starting pipeline...');
+                log('Starting Phase 0 pipeline');
+                
+                document.getElementById('startPipelineBtn').disabled = true;
+                pipelineState.isProcessing = true;
+                
+                // Call API to start pipeline
+                const response = await fetch('/api/pipeline/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        phase_number: 0,
+                        input_data: phase0Input,
+                        model_to_use: 'gpt4'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    pipelineState.sessionId = result.session_id;
+                    pipelineState.currentPhase = 0;
+                    pipelineState.phaseResults[0] = result.result;
+                    
+                    updatePhaseProgress(0);
+                    displayPhaseResult(0, result.result);
+                    
+                    showStatus('success', 'Phase 0 completed successfully');
+                    log(`Phase 0 completed. Session ID: ${result.session_id}`);
+                    
+                    // Show approval section
+                    document.getElementById('approvalSection').style.display = 'block';
+                    
+                    // Update session status
+                    document.getElementById('sessionStatus').textContent = 'Review Required';
+                } else {
+                    throw new Error(result.error || 'Pipeline start failed');
+                }
+                
+            } catch (error) {
+                showStatus('error', `Pipeline error: ${error.message}`);
+                log(`Pipeline error: ${error.message}`, 'error');
+            } finally {
+                document.getElementById('startPipelineBtn').disabled = false;
+                pipelineState.isProcessing = false;
+            }
+        }
+        
+        async function approvePhase() {
+            if (!pipelineState.sessionId || pipelineState.currentPhase < 0) {
+                showStatus('error', 'No active phase to approve');
+                return;
+            }
+            
+            try {
+                showStatus('info', `Approving Phase ${pipelineState.currentPhase}...`);
+                
+                // Approve current phase
+                const approvalResponse = await fetch('/api/phase/approve', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: pipelineState.sessionId,
+                        phase_number: pipelineState.currentPhase,
+                        approved: true
+                    })
+                });
+                
+                const approvalResult = await approvalResponse.json();
+                
+                if (!approvalResult.success) {
+                    throw new Error(approvalResult.error || 'Approval failed');
+                }
+                
+                log(`Phase ${pipelineState.currentPhase} approved`);
+                
+                // Continue to next phase
+                await continueToNextPhase();
+                
+            } catch (error) {
+                showStatus('error', `Approval error: ${error.message}`);
+                log(`Approval error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function continueToNextPhase() {
+            // Check if we're at Phase 2 (our current limit)
+            if (pipelineState.currentPhase >= 2) {
+                showStatus('info', 'Pipeline completed up to Phase 2');
+                log('Pipeline reached Phase 2 limit (current implementation)');
+                document.getElementById('approvalSection').style.display = 'none';
+                document.getElementById('sessionStatus').textContent = 'Completed';
+                return;
+            }
+            
+            // Special handling for Phase 1-2 (needs model selection)
+            let models = ['gpt4', 'claude', 'gemini'];
+            if (pipelineState.currentPhase === 0) {
+                // Show model selection for Phase 1-2
+                document.getElementById('phaseModelSelection').style.display = 'block';
+                
+                // Get selected models
+                const selectedModels = [];
+                if (document.getElementById('modelGpt4').checked) selectedModels.push('gpt4');
+                if (document.getElementById('modelClaude').checked) selectedModels.push('claude');
+                if (document.getElementById('modelGemini').checked) selectedModels.push('gemini');
+                
+                if (selectedModels.length === 0) {
+                    showStatus('warning', 'Please select at least one model for Phase 1-2');
+                    return;
+                }
+                models = selectedModels;
+            }
+            
+            try {
+                showStatus('info', `Starting Phase ${pipelineState.currentPhase + 1}...`);
+                document.getElementById('sessionStatus').textContent = 'Processing';
+                
+                const response = await fetch('/api/phase/continue', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: pipelineState.sessionId,
+                        models_to_use: models
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    if (result.completed) {
+                        showStatus('success', 'Pipeline completed!');
+                        document.getElementById('approvalSection').style.display = 'none';
+                        document.getElementById('sessionStatus').textContent = 'Completed';
+                    } else {
+                        pipelineState.currentPhase = result.phase;
+                        pipelineState.phaseResults[result.phase] = result.result;
+                        
+                        updatePhaseProgress(result.phase);
+                        displayPhaseResult(result.phase, result.result);
+                        
+                        showStatus('success', `Phase ${result.phase} completed`);
+                        log(`Phase ${result.phase} completed`);
+                        
+                        // Show approval section if needed
+                        if (result.requires_review) {
+                            document.getElementById('approvalSection').style.display = 'block';
+                            document.getElementById('sessionStatus').textContent = 'Review Required';
+                        } else {
+                            // Auto-continue if no review needed
+                            setTimeout(() => continueToNextPhase(), 1000);
+                        }
+                    }
+                } else {
+                    throw new Error(result.error || 'Phase continuation failed');
+                }
+                
+            } catch (error) {
+                showStatus('error', `Phase continuation error: ${error.message}`);
+                log(`Phase continuation error: ${error.message}`, 'error');
+                document.getElementById('sessionStatus').textContent = 'Error';
+            }
+        }
+        
+        function modifyPhase() {
+            // This would open a modal or editor to modify the phase result
+            showStatus('info', 'Modify feature coming soon...');
+            log('Modify phase requested - feature pending');
+        }
+        
+        function displayPhaseResult(phaseNumber, result) {
+            const resultViewer = document.getElementById('resultViewer');
+            const rawJsonViewer = document.getElementById('rawJsonViewer');
+            
+            // Format result for display
+            let displayContent = '';
+            
+            if (phaseNumber === 0) {
+                displayContent = `
+                    <h4>Phase 0: Data Preparation Complete</h4>
+                    <p><strong>Status:</strong> Data merged and formatted</p>
+                    <p><strong>Rooms:</strong> ${result.rooms ? result.rooms.length : 0}</p>
+                    <p><strong>Total Items:</strong> ${JSON.stringify(result).length} characters</p>
+                `;
+            } else if (phaseNumber === 1) {
+                displayContent = `
+                    <h4>Phase 1: Measurement & Work Scope Merged</h4>
+                    <p><strong>Rooms Processed:</strong> ${result.rooms ? result.rooms.length : 0}</p>
+                    <p><strong>Confidence:</strong> ${result.confidence || 'N/A'}</p>
+                `;
+            } else if (phaseNumber === 2) {
+                displayContent = `
+                    <h4>Phase 2: Quantity Survey Complete</h4>
+                    <p><strong>Models Used:</strong> ${result.models_used ? result.models_used.join(', ') : 'N/A'}</p>
+                    <p><strong>Overall Confidence:</strong> ${result.confidence_score ? (result.confidence_score * 100).toFixed(1) + '%' : 'N/A'}</p>
+                    <p><strong>Processing Time:</strong> ${result.processing_time || 'N/A'}</p>
+                `;
+                
+                if (result.rooms) {
+                    displayContent += '<div style="margin-top: 15px;"><h5>Room Summary:</h5><ul>';
+                    result.rooms.forEach(room => {
+                        displayContent += `<li>${room.name}: ${room.work_items ? room.work_items.length : 0} items</li>`;
+                    });
+                    displayContent += '</ul></div>';
+                }
+            }
+            
+            resultViewer.innerHTML = displayContent;
+            rawJsonViewer.textContent = JSON.stringify(result, null, 2);
+        }
+        
+        function clearInputs() {
+            pipelineState = {
+                sessionId: null,
+                currentPhase: -1,
+                phaseResults: {},
+                measurementData: null,
+                demoData: null,
+                intakeData: null,
+                isProcessing: false
+            };
+            
+            document.getElementById('measurementFile').value = '';
+            document.getElementById('demoFile').value = '';
+            document.getElementById('intakeFormData').value = '';
+            document.getElementById('measurementStatus').textContent = '';
+            document.getElementById('demoStatus').textContent = '';
+            
+            document.getElementById('resultViewer').innerHTML = '<p style="color: #94a3b8; text-align: center;">Results will appear here after processing...</p>';
+            document.getElementById('rawJsonViewer').textContent = '{}';
+            document.getElementById('logsViewer').textContent = 'System ready...\n';
+            
+            document.getElementById('sessionInfo').style.display = 'none';
+            document.getElementById('approvalSection').style.display = 'none';
+            document.getElementById('phaseModelSelection').style.display = 'none';
+            
+            updatePhaseProgress(0);
+            
+            showStatus('info', 'All inputs cleared');
+            log('Pipeline reset');
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            setupFileUploads();
+            log('Pipeline UI initialized');
+        });
+    </script>
+</body>
+</html>

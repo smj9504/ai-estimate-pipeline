@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reconstruction Estimator</title>
+    <title>AI Estimation Platform</title>
     <style>
         * {
             margin: 0;
@@ -17,6 +17,9 @@
             color: #333;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .container {
@@ -25,434 +28,312 @@
             padding: 20px;
         }
         
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 40px;
-        }
-        
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            font-weight: 300;
-        }
-        
         .main-card {
             background: white;
             border-radius: 12px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             overflow: hidden;
+            text-align: center;
         }
         
         .card-header {
             background: #4a5568;
             color: white;
-            padding: 20px;
-            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .card-header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .card-header p {
+            font-size: 1.2em;
+            opacity: 0.9;
         }
         
         .card-body {
-            padding: 30px;
-        }
-        
-        .upload-section {
-            border: 2px dashed #cbd5e0;
-            border-radius: 8px;
             padding: 40px;
-            text-align: center;
-            margin-bottom: 30px;
-            transition: all 0.3s ease;
         }
         
-        .upload-section:hover {
-            border-color: #667eea;
-            background-color: #f8fafc;
-        }
-        
-        .upload-section.dragover {
-            border-color: #667eea;
-            background-color: #edf2f7;
-        }
-        
-        .file-input {
-            margin: 20px 0;
-        }
-        
-        .file-input input[type="file"] {
-            display: none;
-        }
-        
-        .file-label {
-            display: inline-block;
-            padding: 12px 24px;
-            background: #667eea;
-            color: white;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        
-        .file-label:hover {
-            background: #5a67d8;
-        }
-        
-        .model-selection {
-            margin-bottom: 30px;
-        }
-        
-        .model-selection h3 {
-            margin-bottom: 15px;
+        .section-title {
             color: #4a5568;
+            margin-bottom: 10px;
+            font-size: 1.8em;
         }
         
-        .checkbox-group {
-            display: flex;
+        .section-subtitle {
+            color: #718096;
+            margin-bottom: 30px;
+        }
+        
+        .estimation-types {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 20px;
-            flex-wrap: wrap;
+            margin-bottom: 40px;
         }
         
-        .checkbox-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .checkbox-item input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-        }
-        
-        .process-button {
-            width: 100%;
-            padding: 15px;
-            background: #48bb78;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        
-        .process-button:hover {
-            background: #38a169;
-        }
-        
-        .process-button:disabled {
-            background: #a0aec0;
-            cursor: not-allowed;
-        }
-        
-        .results-section {
-            margin-top: 30px;
-            padding: 20px;
-            background: #f7fafc;
+        .estimate-card {
+            border: 2px solid #e2e8f0;
             border-radius: 8px;
-            display: none;
+            padding: 25px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            position: relative;
         }
         
-        .results-section.show {
-            display: block;
+        .estimate-card:hover:not(.disabled) {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
         }
         
-        .confidence-badge {
+        .estimate-card.disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background: #f7fafc;
+        }
+        
+        .estimate-card .icon {
+            font-size: 2.5em;
+            margin-bottom: 15px;
+        }
+        
+        .estimate-card h3 {
+            color: #4a5568;
+            margin-bottom: 10px;
+            font-size: 1.3em;
+        }
+        
+        .estimate-card p {
+            color: #718096;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+        
+        .badge {
             display: inline-block;
             padding: 4px 12px;
+            background: #667eea;
+            color: white;
             border-radius: 20px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 500;
+            margin-top: 12px;
             text-transform: uppercase;
         }
         
-        .confidence-high {
-            background: #c6f6d5;
-            color: #22543d;
+        .badge.active {
+            background: #48bb78;
         }
         
-        .confidence-medium {
-            background: #feebc8;
-            color: #744210;
+        .badge.coming-soon {
+            background: #cbd5e0;
+            color: #4a5568;
         }
         
-        .confidence-low {
-            background: #fed7d7;
-            color: #742a2a;
+        .badge.beta {
+            background: #f6ad55;
         }
         
-        .loading {
-            text-align: center;
+        .divider {
+            height: 1px;
+            background: #e2e8f0;
+            margin: 40px 0;
+        }
+        
+        .developer-section {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        
+        .dev-card {
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
             padding: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            align-items: center;
+            gap: 20px;
         }
         
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 15px;
+        .dev-card:hover {
+            border-color: #667eea;
+            background: #f8fafc;
         }
         
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .dev-card .icon {
+            font-size: 1.8em;
+            color: #667eea;
         }
         
-        .error-message {
-            background: #fed7d7;
-            color: #742a2a;
-            padding: 15px;
-            border-radius: 6px;
-            margin-top: 15px;
+        .dev-card-content h4 {
+            color: #4a5568;
+            margin-bottom: 5px;
         }
         
-        .success-message {
-            background: #c6f6d5;
-            color: #22543d;
-            padding: 15px;
-            border-radius: 6px;
-            margin-top: 15px;
+        .dev-card-content p {
+            color: #718096;
+            font-size: 0.9em;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+            text-align: left;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        
+        .feature-item .check {
+            color: #48bb78;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        
+        .feature-item span {
+            color: #718096;
+            font-size: 0.95em;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>Reconstruction Estimator</h1>
-            <p>Multi-model AI system for residential reconstruction estimates</p>
-        </div>
-        
         <div class="main-card">
             <div class="card-header">
-                <h2>Upload Project Data</h2>
+                <h1>AI Estimation Platform</h1>
+                <p>Multi-Model AI System for Professional Estimates</p>
             </div>
             
             <div class="card-body">
-                <div class="upload-section" id="uploadSection">
-                    <div id="uploadPrompt">
-                        <h3>Drop JSON file here or click to browse</h3>
-                        <p>Upload your reconstruction project JSON data</p>
-                        <div class="file-input">
-                            <input type="file" id="fileInput" accept=".json" />
-                            <label for="fileInput" class="file-label">Choose File</label>
-                        </div>
+                <h2 class="section-title">Select Estimation Type</h2>
+                <p class="section-subtitle">Choose the type of estimate you need to generate</p>
+                
+                <div class="estimation-types">
+                    <a href="/pipeline" class="estimate-card">
+                        <div class="icon">🏗️</div>
+                        <h3>Reconstruction</h3>
+                        <p>
+                            Interior reconstruction estimates with 7-phase processing.
+                            Includes Remove & Replace strategy, quantity survey, and multi-model consensus.
+                        </p>
+                        <span class="badge active">Available</span>
+                    </a>
+                    
+                    <div class="estimate-card disabled">
+                        <div class="icon">📦</div>
+                        <h3>Moving Estimate</h3>
+                        <p>
+                            Professional moving cost estimates including packing, transportation, 
+                            and storage options with distance-based pricing.
+                        </p>
+                        <span class="badge coming-soon">Coming Soon</span>
                     </div>
-                    <div id="fileInfo" style="display: none;">
-                        <h4 id="fileName"></h4>
-                        <p id="fileSize"></p>
+                    
+                    <div class="estimate-card disabled">
+                        <div class="icon">🏠</div>
+                        <h3>Roofing</h3>
+                        <p>
+                            Complete roofing estimates for repairs and replacements.
+                            Material options, labor costs, and warranty considerations.
+                        </p>
+                        <span class="badge coming-soon">Coming Soon</span>
+                    </div>
+                    
+                    <div class="estimate-card disabled">
+                        <div class="icon">🏘️</div>
+                        <h3>Siding</h3>
+                        <p>
+                            Exterior siding estimates for various materials.
+                            Vinyl, fiber cement, wood, and composite options.
+                        </p>
+                        <span class="badge coming-soon">Coming Soon</span>
+                    </div>
+                    
+                    <div class="estimate-card disabled">
+                        <div class="icon">🚿</div>
+                        <h3>Bathroom Remodel</h3>
+                        <p>
+                            Complete bathroom renovation estimates.
+                            Fixtures, finishes, and accessibility upgrades.
+                        </p>
+                        <span class="badge coming-soon">Coming Soon</span>
+                    </div>
+                    
+                    <div class="estimate-card disabled">
+                        <div class="icon">🍳</div>
+                        <h3>Kitchen Remodel</h3>
+                        <p>
+                            Kitchen renovation and upgrade estimates.
+                            Cabinets, countertops, appliances, and layouts.
+                        </p>
+                        <span class="badge coming-soon">Coming Soon</span>
                     </div>
                 </div>
                 
-                <div class="model-selection">
-                    <h3>Select AI Models</h3>
-                    <div class="checkbox-group">
-                        <div class="checkbox-item">
-                            <input type="checkbox" id="gpt4" value="gpt4" checked />
-                            <label for="gpt4">GPT-4 (계산 정확도)</label>
+                <div class="divider"></div>
+                
+                <h3 style="color: #4a5568; margin-bottom: 20px;">Developer Tools</h3>
+                <div class="developer-section">
+                    <a href="/api/docs" class="dev-card">
+                        <div class="icon">📚</div>
+                        <div class="dev-card-content">
+                            <h4>API Documentation</h4>
+                            <p>Interactive API documentation with testing capabilities</p>
                         </div>
-                        <div class="checkbox-item">
-                            <input type="checkbox" id="claude" value="claude" checked />
-                            <label for="claude">Claude (리스크 고려)</label>
+                    </a>
+                    
+                    <a href="/api/health" class="dev-card">
+                        <div class="icon">💚</div>
+                        <div class="dev-card-content">
+                            <h4>System Health</h4>
+                            <p>Check system status and model availability</p>
                         </div>
-                        <div class="checkbox-item">
-                            <input type="checkbox" id="gemini" value="gemini" checked />
-                            <label for="gemini">Gemini (시장 정보)</label>
-                        </div>
+                    </a>
+                </div>
+                
+                <div class="features-grid">
+                    <div class="feature-item">
+                        <span class="check">✓</span>
+                        <span>Multi-model consensus (GPT-4, Claude, Gemini)</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="check">✓</span>
+                        <span>Phase-by-phase processing</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="check">✓</span>
+                        <span>DMV area market pricing</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="check">✓</span>
+                        <span>Session management</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="check">✓</span>
+                        <span>Comprehensive validation</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="check">✓</span>
+                        <span>Export to JSON/PDF</span>
                     </div>
                 </div>
-                
-                <button class="process-button" id="processButton" onclick="processEstimate()">
-                    Generate Estimate
-                </button>
-                
-                <div id="loadingSection" class="loading" style="display: none;">
-                    <div class="spinner"></div>
-                    <p>Processing with multiple AI models...</p>
-                </div>
-                
-                <div id="resultsSection" class="results-section">
-                    <h3>Merged Results</h3>
-                    <div id="resultsContent"></div>
-                </div>
-                
-                <div id="errorSection" style="display: none;"></div>
             </div>
         </div>
     </div>
-
-    <script>
-        let uploadedData = null;
-        
-        // 파일 업로드 처리
-        const fileInput = document.getElementById('fileInput');
-        const uploadSection = document.getElementById('uploadSection');
-        const uploadPrompt = document.getElementById('uploadPrompt');
-        const fileInfo = document.getElementById('fileInfo');
-        const fileName = document.getElementById('fileName');
-        const fileSize = document.getElementById('fileSize');
-        
-        fileInput.addEventListener('change', handleFileSelect);
-        
-        // 드래그 앤 드롭
-        uploadSection.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadSection.classList.add('dragover');
-        });
-        
-        uploadSection.addEventListener('dragleave', () => {
-            uploadSection.classList.remove('dragover');
-        });
-        
-        uploadSection.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadSection.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                handleFile(files[0]);
-            }
-        });
-        
-        function handleFileSelect(e) {
-            const file = e.target.files[0];
-            if (file) {
-                handleFile(file);
-            }
-        }
-        
-        async function handleFile(file) {
-            if (!file.name.endsWith('.json')) {
-                showError('Please select a JSON file');
-                return;
-            }
-            
-            try {
-                const text = await file.text();
-                uploadedData = JSON.parse(text);
-                
-                // 파일 정보 표시
-                fileName.textContent = file.name;
-                fileSize.textContent = `${(file.size / 1024).toFixed(1)} KB`;
-                uploadPrompt.style.display = 'none';
-                fileInfo.style.display = 'block';
-                
-                showSuccess('JSON file loaded successfully');
-                
-            } catch (error) {
-                showError('Invalid JSON file: ' + error.message);
-                uploadedData = null;
-            }
-        }
-        
-        async function processEstimate() {
-            if (!uploadedData) {
-                showError('Please upload a JSON file first');
-                return;
-            }
-            
-            const selectedModels = getSelectedModels();
-            if (selectedModels.length === 0) {
-                showError('Please select at least one AI model');
-                return;
-            }
-            
-            // UI 업데이트
-            const processButton = document.getElementById('processButton');
-            const loadingSection = document.getElementById('loadingSection');
-            const resultsSection = document.getElementById('resultsSection');
-            
-            processButton.disabled = true;
-            loadingSection.style.display = 'block';
-            resultsSection.classList.remove('show');
-            hideMessages();
-            
-            try {
-                const response = await fetch('/api/estimate/merge', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        json_data: uploadedData,
-                        models_to_use: selectedModels
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    displayResults(result);
-                } else {
-                    showError(result.error_message || 'Processing failed');
-                }
-                
-            } catch (error) {
-                showError('Network error: ' + error.message);
-            } finally {
-                processButton.disabled = false;
-                loadingSection.style.display = 'none';
-            }
-        }
-        
-        function getSelectedModels() {
-            const checkboxes = document.querySelectorAll('.checkbox-item input[type="checkbox"]:checked');
-            return Array.from(checkboxes).map(cb => cb.value);
-        }
-        
-        function displayResults(result) {
-            const resultsContent = document.getElementById('resultsContent');
-            const confidence = result.confidence_score;
-            
-            let confidenceClass = 'confidence-low';
-            let confidenceText = 'Low';
-            
-            if (confidence >= 0.8) {
-                confidenceClass = 'confidence-high';
-                confidenceText = 'High';
-            } else if (confidence >= 0.6) {
-                confidenceClass = 'confidence-medium';
-                confidenceText = 'Medium';
-            }
-            
-            resultsContent.innerHTML = `
-                <div style="margin-bottom: 20px;">
-                    <span class="confidence-badge ${confidenceClass}">
-                        Confidence: ${confidenceText} (${(confidence * 100).toFixed(1)}%)
-                    </span>
-                </div>
-                
-                <h4>Processing Details:</h4>
-                <ul>
-                    <li>Models used: ${result.metadata.models_used.join(', ')}</li>
-                    <li>Processing time: ${result.metadata.processing_time}</li>
-                    <li>Deviation level: ${result.metadata.deviation_level}</li>
-                </ul>
-                
-                <h4>Merged Estimate:</h4>
-                <pre style="background: #f1f5f9; padding: 15px; border-radius: 6px; overflow-x: auto;">
-${JSON.stringify(result.merged_result, null, 2)}
-                </pre>
-            `;
-            
-            document.getElementById('resultsSection').classList.add('show');
-        }
-        
-        function showError(message) {
-            const errorSection = document.getElementById('errorSection');
-            errorSection.innerHTML = `<div class="error-message">${message}</div>`;
-            errorSection.style.display = 'block';
-        }
-        
-        function showSuccess(message) {
-            const errorSection = document.getElementById('errorSection');
-            errorSection.innerHTML = `<div class="success-message">${message}</div>`;
-            errorSection.style.display = 'block';
-        }
-        
-        function hideMessages() {
-            document.getElementById('errorSection').style.display = 'none';
-        }
-    </script>
 </body>
 </html>

@@ -1,0 +1,118 @@
+Property Address: 456 Elm Street, Arlington, VA 22201
+Occupancy: Occupied
+
+Default Scope(1st Floor):
+Material:
+	Floor: Laminate Wood
+	Wall: drywall
+	Ceiling: drywall
+	Baseboard: wood
+	Quarter round: wood
+Work:
+	Flooring: Remove & Replace
+	Wall: Patch
+	Ceiling: Patch
+	Baseboard: Remove & Replace
+	Quarter Round: Remove & Replace
+	Paint: Wall, Ceiling
+
+Default Scope(2nd Floor):
+Material:
+	Floor: Carpet
+	Wall: drywall
+	Ceiling: drywall
+	Baseboard: wood
+	Quarter round: wood
+Work:
+	Flooring: Remove & Replace
+	Wall: Paint Only
+	Ceiling: Paint Only
+	Baseboard: Clean & Reset
+	Quarter Round: Clean & Reset
+	Paint: Wall, Ceiling, Trim
+
+Default Scope(Basement):
+Material:
+	Floor: Vinyl Plank
+	Wall: drywall
+	Ceiling: drop-ceiling
+	Baseboard: vinyl
+	Quarter round: N/A
+Work:
+	Flooring: Remove & Replace
+	Wall: Remove & Replace (lower 4ft)
+	Ceiling: Remove
+	Baseboard: Remove & Replace
+	Quarter Round: N/A
+	Paint: Wall, Ceiling
+
+[ROOM ENTRY]
+Room: Living Room
+Material Override:
+	- Floor: hardwood
+	- Wall: N/A
+Work Scope Override:
+	- Flooring: Remove & Replace
+	- Wall: N/A
+	- Paint: Wall, Ceiling, Baseboard
+Other:
+	- Protection: cover furniture, seal doorways
+	- Detach & Reset: wall-mounted TV, artwork
+
+Room: Kitchen
+Material Override:
+	- Floor: luxury vinyl tile
+	- Ceiling: smooth drywall
+Work Scope Override:
+	- Flooring: Remove & Replace
+	- Wall: Remove & Replace (behind cabinets)
+	- Ceiling: Remove & Replace
+	- Paint: Wall, Ceiling, Baseboard
+Other:
+	- Protection: plastic wrap appliances
+	- Detach & Reset: dishwasher, refrigerator water line
+
+Room: Bathroom
+Material Override:
+	- Floor: ceramic tile
+	- Wall: moisture-resistant drywall
+Work Scope Override:
+	- Flooring: Remove & Replace
+	- Wall: Remove & Replace (to 4ft height)
+	- Ceiling: Patch & Paint
+Other:
+	- Protection: cover fixtures
+	- Detach & Reset: toilet, vanity
+
+Room: Master Bedroom
+Material Override:
+	- Floor: engineered hardwood
+Work Scope Override:
+	- Flooring: Remove & Replace
+	- Paint: Wall, Ceiling, Trim
+Other:
+	- Protection: cover closet contents
+	- Detach & Reset: ceiling fan
+
+Room: Bedroom 2
+Material Override:
+	- Floor: carpet with upgraded pad
+Work Scope Override:
+	- Flooring: Remove & Replace
+	- Paint: Wall, Ceiling
+Other:
+	- Protection: N/A
+	- Detach & Reset: N/A
+
+Room: Rec Room
+Material Override:
+	- Floor: waterproof LVT
+	- Wall: mold-resistant drywall
+Work Scope Override:
+	- Flooring: Remove & Replace
+	- Wall: Remove & Replace (full height)
+	- Ceiling: Remove & Replace
+	- Paint: Wall, Ceiling, Trim
+Other:
+	- Protection: seal off HVAC, cover stairs
+	- Detach & Reset: wall-mounted shelving, electrical outlets

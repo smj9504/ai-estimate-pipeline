@@ -1,0 +1,118 @@
+[
+    {
+        "location": "1st Floor",
+        "rooms": [
+            {
+                "name": "Living Room",
+                "measurements": {
+                    "height": 8.00,
+                    "wall_area_sqft": 300.00,
+                    "ceiling_area_sqft": 150.00,
+                    "floor_area_sqft": 150.00,
+                    "walls_and_ceiling_area_sqft": 450.00,
+                    "flooring_area_sy": 16.67,
+                    "ceiling_perimeter_lf": 60.00,
+                    "floor_perimeter_lf": 60.00,
+                    "openings": [
+                        { "type": "door", "size": "3' x 7'" },
+                        { "type": "window", "size": "4' x 5'" }
+                    ]
+                }
+            },
+            {
+                "name": "Kitchen",
+                "measurements": {
+                    "height": 8.00,
+                    "wall_area_sqft": 250.00,
+                    "ceiling_area_sqft": 100.00,
+                    "floor_area_sqft": 100.00,
+                    "walls_and_ceiling_area_sqft": 350.00,
+                    "flooring_area_sy": 11.11,
+                    "ceiling_perimeter_lf": 50.00,
+                    "floor_perimeter_lf": 50.00,
+                    "openings": [
+                        { "type": "door", "size": "3' x 7'" },
+                        { "type": "window", "size": "3' x 4'" }
+                    ]
+                }
+            },
+            {
+                "name": "Bathroom",
+                "measurements": {
+                    "height": 8.00,
+                    "wall_area_sqft": 180.00,
+                    "ceiling_area_sqft": 50.00,
+                    "floor_area_sqft": 50.00,
+                    "walls_and_ceiling_area_sqft": 230.00,
+                    "flooring_area_sy": 5.56,
+                    "ceiling_perimeter_lf": 30.00,
+                    "floor_perimeter_lf": 30.00,
+                    "openings": [
+                        { "type": "door", "size": "2.5' x 7'" }
+                    ]
+                }
+            }
+        ]
+    },
+    {
+        "location": "2nd Floor",
+        "rooms": [
+            {
+                "name": "Master Bedroom",
+                "measurements": {
+                    "height": 8.00,
+                    "wall_area_sqft": 320.00,
+                    "ceiling_area_sqft": 180.00,
+                    "floor_area_sqft": 180.00,
+                    "walls_and_ceiling_area_sqft": 500.00,
+                    "flooring_area_sy": 20.00,
+                    "ceiling_perimeter_lf": 64.00,
+                    "floor_perimeter_lf": 64.00,
+                    "openings": [
+                        { "type": "door", "size": "3' x 7'" },
+                        { "type": "window", "size": "4' x 5'" },
+                        { "type": "window", "size": "4' x 5'" }
+                    ]
+                }
+            },
+            {
+                "name": "Bedroom 2",
+                "measurements": {
+                    "height": 8.00,
+                    "wall_area_sqft": 280.00,
+                    "ceiling_area_sqft": 120.00,
+                    "floor_area_sqft": 120.00,
+                    "walls_and_ceiling_area_sqft": 400.00,
+                    "flooring_area_sy": 13.33,
+                    "ceiling_perimeter_lf": 48.00,
+                    "floor_perimeter_lf": 48.00,
+                    "openings": [
+                        { "type": "door", "size": "3' x 7'" },
+                        { "type": "window", "size": "3' x 4'" }
+                    ]
+                }
+            }
+        ]
+    },
+    {
+        "location": "Basement",
+        "rooms": [
+            {
+                "name": "Rec Room",
+                "measurements": {
+                    "height": 7.50,
+                    "wall_area_sqft": 500.00,
+                    "ceiling_area_sqft": 200.00,
+                    "floor_area_sqft": 200.00,
+                    "walls_and_ceiling_area_sqft": 700.00,
+                    "flooring_area_sy": 22.22,
+                    "ceiling_perimeter_lf": 80.00,
+                    "floor_perimeter_lf": 80.00,
+                    "openings": [
+                        { "type": "door", "size": "3' x 7'" }
+                    ]
+                }
+            }
+        ]
+    }
+]
