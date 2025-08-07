@@ -1030,6 +1030,11 @@ Special Instructions: High-end finishes required"></textarea>
                 }
                 
             } catch (error) {
+                // Stop progress tracker on error
+                if (progressTracker) {
+                    progressTracker.stop();
+                    progressTracker = null;
+                }
                 showStatus('error', `Phase continuation error: ${error.message}`);
                 log(`Phase continuation error: ${error.message}`, 'error');
                 document.getElementById('sessionStatus').textContent = 'Error';
@@ -1042,76 +1047,24 @@ Special Instructions: High-end finishes required"></textarea>
             log('Modify phase requested - feature pending');
         }
         
+        // Initialize progress tracker
+        let progressTracker = null;
+        
         function showPhaseProcessing(phaseNumber, selectedModels) {
             const resultViewer = document.getElementById('resultViewer');
             const rawJsonViewer = document.getElementById('rawJsonViewer');
             
-            // Show processing indicator
-            let processingContent = `
-                <div class="processing-indicator">
-                    <h4>Phase ${phaseNumber}: Processing in Progress</h4>
-                    <div class="processing-status">
-                        <div class="spinner">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="sr-only">Loading...</span>
-                            </div>
-                        </div>
-                        <p><strong>Status:</strong> <span class="text-info">Running AI models...</span></p>
-                        <p><strong>Selected Models:</strong> ${selectedModels.map(model => {
-                            const modelNames = {'gpt4': 'GPT-4', 'claude': 'Claude', 'gemini': 'Gemini'};
-                            return modelNames[model] || model;
-                        }).join(', ')}</p>
-                        <p><strong>Phase Description:</strong> 
-                            ${phaseNumber === 0 ? 'Generating initial scope of work from measurement and demolition data' :
-                              phaseNumber === 1 ? 'Merging measurement data with work scope using multi-model analysis' : 
-                              phaseNumber === 2 ? 'Performing quantity survey with consensus-based estimation' :
-                              `Processing Phase ${phaseNumber} operations`}
-                        </p>
-                        <div class="progress mt-3" style="height: 25px;">
-                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" 
-                                 role="progressbar" style="width: 100%" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
-                                Processing...
-                            </div>
-                        </div>
-                        <div class="processing-steps mt-3">
-                            <small class="text-muted">
-                                • Sending requests to AI models<br>
-                                • Collecting responses<br>
-                                • Merging results with confidence scoring<br>
-                                • Validating output data
-                            </small>
-                        </div>
-                    </div>
-                </div>
-                
-                <style>
-                .processing-indicator {
-                    text-align: center;
-                    padding: 30px;
-                    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-                    border-radius: 12px;
-                    border: 2px solid #0066cc;
-                }
-                .processing-status {
-                    margin-top: 20px;
-                }
-                .spinner {
-                    margin: 20px 0;
-                }
-                .spinner-border {
-                    width: 3rem;
-                    height: 3rem;
-                }
-                .processing-steps {
-                    background: #f8f9fa;
-                    padding: 15px;
-                    border-radius: 8px;
-                    border-left: 4px solid #0066cc;
-                }
-                </style>
-            `;
+            // Create container for progress tracker
+            resultViewer.innerHTML = '<div class="processing-indicator"></div>';
             
-            resultViewer.innerHTML = processingContent;
+            // Initialize and start progress tracker
+            if (progressTracker) {
+                progressTracker.stop();
+            }
+            progressTracker = new ProgressTracker();
+            progressTracker.start(selectedModels);
+            
+            // Update raw JSON viewer
             rawJsonViewer.textContent = JSON.stringify({
                 "status": "processing",
                 "phase": phaseNumber,
@@ -1137,7 +1090,17 @@ Special Instructions: High-end finishes required"></textarea>
                     <p><strong>Total Items:</strong> ${JSON.stringify(result).length} characters</p>
                 `;
             } else if (phaseNumber === 1) {
-                const roomCount = result.data ? result.data.reduce((total, floor) => total + (floor.rooms ? floor.rooms.length : 0), 0) : 0;
+                // Phase 1 returns merged data with rooms array directly
+                let roomCount = 0;
+                if (result.data) {
+                    if (result.data.rooms && Array.isArray(result.data.rooms)) {
+                        // Phase 1 merged data has rooms array directly
+                        roomCount = result.data.rooms.length;
+                    } else if (Array.isArray(result.data)) {
+                        // If data is floors array (shouldn't happen in Phase 1)
+                        roomCount = result.data.reduce((total, floor) => total + (floor.rooms ? floor.rooms.length : 0), 0);
+                    }
+                }
                 const models = result.models_used ? result.models_used.join(', ') : 'N/A';
                 const processingTime = result.processing_time || 'N/A';
                 
@@ -1151,10 +1114,10 @@ Special Instructions: High-end finishes required"></textarea>
                 `;
                 
                 // Show room details if available
-                if (result.rooms && result.rooms.length > 0) {
+                if (result.data && result.data.rooms && result.data.rooms.length > 0) {
                     displayContent += '<div style="margin-top: 15px;"><h5>Room Summary:</h5><ul>';
-                    result.rooms.forEach(room => {
-                        const workItemsCount = room.work_items ? room.work_items.length : 0;
+                    result.data.rooms.forEach(room => {
+                        const workItemsCount = (room.tasks ? room.tasks.length : 0) || (room.work_items ? room.work_items.length : 0);
                         displayContent += `<li><strong>${room.name || 'Unknown Room'}:</strong> ${workItemsCount} work items processed</li>`;
                     });
                     displayContent += '</ul></div>';
@@ -1170,17 +1133,37 @@ Special Instructions: High-end finishes required"></textarea>
                     `;
                 }
             } else if (phaseNumber === 2) {
+                // Phase 2 returns quantity survey data
+                let itemCount = 0;
+                let roomCount = 0;
+                if (result.data) {
+                    if (result.data.rooms && Array.isArray(result.data.rooms)) {
+                        roomCount = result.data.rooms.length;
+                        itemCount = result.data.summary?.total_items || result.data.rooms.reduce((sum, room) => sum + (room.line_items?.length || 0), 0);
+                    }
+                }
+                
                 displayContent = `
                     <h4>Phase 2: Quantity Survey Complete</h4>
                     <p><strong>Models Used:</strong> ${result.models_used ? result.models_used.join(', ') : 'N/A'}</p>
+                    <p><strong>Rooms Surveyed:</strong> ${roomCount}</p>
+                    <p><strong>Total Line Items:</strong> ${itemCount}</p>
                     <p><strong>Overall Confidence:</strong> ${result.confidence_score ? (result.confidence_score * 100).toFixed(1) + '%' : 'N/A'}</p>
+                    <p><strong>Ready for Phase 3:</strong> ${result.phase3_ready ? '✅ Yes' : '❌ No'}</p>
                     <p><strong>Processing Time:</strong> ${result.processing_time || 'N/A'}</p>
                 `;
                 
-                if (result.rooms) {
+                // Show room details for Phase 2
+                if (result.data && result.data.rooms && result.data.rooms.length > 0) {
                     displayContent += '<div style="margin-top: 15px;"><h5>Room Summary:</h5><ul>';
-                    result.rooms.forEach(room => {
-                        displayContent += `<li>${room.name}: ${room.work_items ? room.work_items.length : 0} items</li>`;
+                    result.data.rooms.forEach(room => {
+                        const itemCount = room.line_items ? room.line_items.length : 0;
+                        const laborHours = room.totals ? room.totals.labor_hours : 0;
+                        displayContent += `<li><strong>${room.name || 'Unknown Room'}:</strong> ${itemCount} line items`;
+                        if (laborHours > 0) {
+                            displayContent += ` (${laborHours.toFixed(1)} labor hours)`;
+                        }
+                        displayContent += '</li>';
                     });
                     displayContent += '</ul></div>';
                 }
@@ -1230,7 +1213,7 @@ Special Instructions: High-end finishes required"></textarea>
         }
         
         // Load test data for quick testing
-        async function loadTestData() {
+        window.loadTestData = async function loadTestData() {
             try {
                 showStatus('info', 'Loading test data from /test_data files...');
                 log('Fetching test data from API...');
@@ -1279,5 +1262,6 @@ Special Instructions: High-end finishes required"></textarea>
             log('Pipeline UI initialized');
         });
     </script>
+    <script src="/static/js/progress-tracker.js"></script>
 </body>
 </html>

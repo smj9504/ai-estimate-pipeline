@@ -1,21 +1,16 @@
-# Model Configuration
-model_weights:
-  gpt4: 0.35
-  claude: 0.35
-  gemini: 0.30
-
-# Deviation Thresholds
-deviation_thresholds:
-  quantity: 0.10      # Quantity deviation 10%
-  labor: 0.20         # Labor cost deviation 20%
-  timeline: 0.15      # Timeline deviation 15%
-
-# Safety Margins
-safety_margins:
-  low_variance: 0.05  # Low variance 5%
-  high_variance: 0.10 # High variance 10%
-
-# Consensus Rules
 consensus:
-  minimum_agreement: 2  # Minimum 2 models agree
-  outlier_threshold: 3  # 3 sigma rule
+  minimum_agreement: 2
+  outlier_threshold: 3
+deviation_thresholds:
+  labor: 0.2
+  quantity: 0.1
+  timeline: 0.15
+model_weights:
+  claude: 0.35
+  gemini: 0.3
+  gpt4: 0.35
+safety_margins:
+  high_variance: 0.1
+  low_variance: 0.05
+validation:
+  mode: strict

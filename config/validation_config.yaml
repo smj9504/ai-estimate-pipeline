@@ -1,0 +1,203 @@
+# config/validation_config.yaml
+# Configuration for AI Response Validation System
+
+validation:
+  # Enable/disable validation system globally
+  enabled: true
+  
+  # Auto-fix settings
+  auto_fix:
+    enabled: true
+    max_fixes_per_response: 10
+    
+  # Quality thresholds
+  quality_thresholds:
+    minimum_for_processing: 30.0    # Responses below this are excluded
+    warning_threshold: 50.0         # Responses below this generate warnings
+    excellent_threshold: 85.0       # Responses above this are considered excellent
+    
+  # Validation timeouts (seconds)
+  timeouts:
+    structure_validation: 5.0
+    integrity_validation: 10.0
+    total_validation: 15.0
+    
+# Structure validation settings
+structure_validation:
+  # Room name validation
+  room_names:
+    min_length: 2
+    max_length: 100
+    invalid_patterns:
+      - '\*+'              # Asterisks
+      - '^\s*$'            # Empty/whitespace
+      - 'room\s*\d+$'      # Generic "Room 1", "Room 2"
+      - 'unknown'          # Unknown variations
+      - 'placeholder'      # Placeholder text
+      - 'todo|fixme|tbd'   # Development placeholders
+    
+  # Task name validation  
+  task_names:
+    min_length: 3
+    max_length: 200
+    invalid_patterns:
+      - '^\s*$'            # Empty
+      - '\*+.*\*+'         # Wrapped in asterisks
+      - 'todo|fixme|tbd'   # Development placeholders
+      - 'example|sample'   # Example/sample tasks
+      
+  # Required fields
+  required_fields:
+    rooms: ["name", "tasks"]
+    tasks: ["task_name", "quantity", "unit"]
+    
+  # Valid units
+  valid_units: ["sqft", "lf", "sy", "item", "hour", "each", "sf", ""]
+  
+  # Count validation
+  count_validation:
+    tolerance: 0  # Exact match required for work items count
+
+# Data integrity validation settings  
+integrity_validation:
+  # Quantity range validation (unit -> [min, max])
+  quantity_ranges:
+    sqft: [0.1, 10000]     # Square feet
+    lf: [0.1, 1000]        # Linear feet
+    sy: [0.1, 1000]        # Square yards  
+    item: [1, 100]         # Items
+    hour: [0.1, 1000]      # Hours
+    each: [1, 100]         # Each
+    
+  # Measurement consistency validation
+  measurement_consistency:
+    enabled: true
+    variance_tolerance: 1.5  # Allow up to 50% variance from measured values
+    
+  # Remove & Replace logic validation
+  remove_replace_validation:
+    enabled: true
+    require_both_tasks: true      # Require both removal and installation tasks
+    check_demo_scope: true        # Check for demo scope conflicts
+    
+  # Task relationship validation
+  task_relationships:
+    enabled: true
+    detect_orphaned_installations: true
+    
+  # Business logic validation
+  business_logic:
+    high_ceiling_threshold: 9.0   # Height in feet for premium pricing
+    safety_critical_keywords:
+      - electrical
+      - wiring
+      - circuit
+      - outlet
+      - plumbing  
+      - water
+      - gas
+      - ventilation
+      - structural
+      - load bearing
+      - support
+      - asbestos
+      - lead
+      - mold
+      - hazard
+
+# Auto-fix settings
+auto_fix:
+  # Room name fixes
+  room_names:
+    remove_asterisks: true
+    generate_fallback_names: true
+    fallback_pattern: "Room {index}"
+    
+  # Task name fixes
+  task_names:
+    remove_placeholders: true
+    generate_fallback_names: false  # Task names too specific to auto-generate
+    
+  # Quantity fixes
+  quantities:
+    fix_negative_values: true      # Convert negative to positive
+    fix_zero_values: false         # Don't auto-fix zeros (may be intentional)
+    fix_invalid_types: true        # Convert strings to numbers where possible
+    
+  # Unit fixes
+  units:
+    standardize_variations: true   # "sq ft" -> "sqft", "linear feet" -> "lf"
+    unit_mappings:
+      "sq ft": "sqft"
+      "square feet": "sqft"  
+      "square foot": "sqft"
+      "linear feet": "lf"
+      "lin ft": "lf"
+      "linear foot": "lf"
+      "square yards": "sy"
+      "sq yd": "sy"
+      "square yard": "sy"
+      
+  # Count fixes
+  counts:
+    recalculate_work_items: true   # Recalculate total_work_items from actual data
+    
+# Logging and reporting
+reporting:
+  # Log levels for different validation events
+  log_levels:
+    validation_start: "INFO"
+    validation_complete: "INFO"
+    issues_found: "WARNING"
+    fixes_applied: "INFO"
+    validation_failed: "ERROR"
+    
+  # Report generation
+  generate_detailed_reports: true
+  include_suggestions: true
+  include_fix_history: true
+  
+  # Validation statistics
+  track_statistics: true
+  statistics_retention_days: 30
+
+# Integration settings
+integration:
+  # Model orchestrator integration
+  orchestrator:
+    default_validation_enabled: true
+    default_quality_threshold: 30.0
+    log_validation_summaries: true
+    
+  # Result merger integration  
+  merger:
+    exclude_invalid_responses: true
+    quality_weighting: true        # Weight responses by quality score
+    min_responses_required: 1      # Minimum valid responses needed for merging
+    
+  # Pipeline integration
+  pipeline:
+    fail_on_all_invalid: false     # Continue processing even if all responses invalid
+    retry_invalid_responses: false # Don't automatically retry validation failures
+
+# Performance settings
+performance:
+  # Parallel processing
+  parallel_validation: false      # Validate responses in parallel (experimental)
+  max_parallel_validations: 3
+  
+  # Caching
+  cache_validation_results: false # Cache validation results (experimental)
+  cache_ttl_seconds: 300
+  
+  # Memory management
+  max_response_size_mb: 50        # Skip validation for very large responses
+  max_validation_memory_mb: 200   # Memory limit for validation process
+
+# Development and debugging  
+development:
+  debug_mode: false
+  log_raw_responses: false        # Log full raw responses (security risk)
+  log_validation_details: false   # Log detailed validation steps
+  save_validation_reports: false  # Save validation reports to files
+  validation_reports_dir: "logs/validation_reports"

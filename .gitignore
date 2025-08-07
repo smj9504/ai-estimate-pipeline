@@ -14,10 +14,27 @@ env/
 *.swp
 *.swo
 
+# Claude settings (local overrides)
+.claude/settings.local.json
+.claude/hooks.local.json
+
 # Project specific
 data/results/
 logs/
 *.log
+
+# Generated files (exclude most txt and json, but allow specific ones)
+*.txt
+*.json
+!phase0_result.json
+!test_data/**/*.json
+!test_data/**/*.txt
+!config/*.json
+!config/*.yaml
+!examples/**/*.json
+!package.json
+!package-lock.json
+!tsconfig.json
 
 # OS
 .DS_Store

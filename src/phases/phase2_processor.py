@@ -144,18 +144,27 @@ class Phase2Processor:
         # ResultMerger를 사용하되, 수량 데이터에 특화된 병합
         merged = self.merger.merge_results(model_results)
         
+        # merged가 MergedEstimate 객체인 경우 처리
+        if hasattr(merged, 'metadata'):
+            consensus_level = merged.metadata.consensus_level if hasattr(merged.metadata, 'consensus_level') else 0
+            confidence_score = merged.overall_confidence if hasattr(merged, 'overall_confidence') else 0
+        else:
+            consensus_level = 0
+            confidence_score = 0
+        
         # 수량 데이터 구조화
         quantity_data = {
             'rooms': [],
             'summary': {
                 'total_items': 0,
-                'consensus_level': merged.metadata.get('consensus_level', 0),
-                'confidence_score': merged.confidence_score
+                'consensus_level': consensus_level,
+                'confidence_score': confidence_score
             }
         }
         
         # 각 방별 수량 정리
-        for room in merged.rooms:
+        rooms = merged.rooms if hasattr(merged, 'rooms') else []
+        for room in rooms:
             room_quantity = {
                 'name': room.get('name', 'Unknown'),
                 'line_items': [],
@@ -167,8 +176,9 @@ class Phase2Processor:
                 }
             }
             
-            # 작업 항목별 수량 추출
-            for task in room.get('tasks', []):
+            # 작업 항목별 수량 추출 - tasks 또는 work_items 처리
+            tasks = room.get('tasks', []) or room.get('work_items', [])
+            for task in tasks:
                 line_item = {
                     'description': task.get('description', ''),
                     'quantity': task.get('quantity', 0),

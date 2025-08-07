@@ -168,11 +168,15 @@ class ConsensusRules(BaseModel):
     minimum_agreement: int = 2
     outlier_threshold: float = 3.0  # 3-시그마 룰
 
+class ValidationSettings(BaseModel):
+    mode: str = "balanced"  # strict, balanced, lenient
+
 class AppConfig(BaseModel):
     model_weights: ModelWeights = Field(default_factory=ModelWeights)
     deviation_thresholds: DeviationThresholds = Field(default_factory=DeviationThresholds)
     safety_margins: SafetyMargins = Field(default_factory=SafetyMargins)
     consensus: ConsensusRules = Field(default_factory=ConsensusRules)
+    validation: ValidationSettings = Field(default_factory=ValidationSettings)
 
 # 유틸리티 함수들
 def calculate_confidence_level(consensus_score: float) -> ConfidenceLevel:

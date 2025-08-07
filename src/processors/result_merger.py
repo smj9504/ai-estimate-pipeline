@@ -11,6 +11,7 @@ from src.models.data_models import (
 from src.utils.statistical_utils import StatisticalProcessor
 from src.utils.text_utils import TextProcessor
 from src.utils.config_loader import ConfigLoader
+from src.utils.logger import get_logger
 
 class QualitativeMerger:
     """질적 데이터 병합 (작업 범위, 로직 적용)"""
@@ -18,11 +19,12 @@ class QualitativeMerger:
     def __init__(self, config):
         self.config = config
         self.text_processor = TextProcessor()
+        self.logger = get_logger('qualitative_merger')
         self.consensus_threshold = config.consensus.minimum_agreement
     
     def merge_work_scopes(self, model_responses: List[ModelResponse]) -> Dict[str, Any]:
         """작업 범위 병합"""
-        print(f"작업 범위 병합 시작: {len(model_responses)}개 모델")
+        self.logger.info(f"작업 범위 병합 시작: {len(model_responses)}개 모델")
         
         # 1. 모든 작업 항목 수집
         all_tasks = self._collect_all_tasks(model_responses)
@@ -48,11 +50,65 @@ class QualitativeMerger:
         all_tasks = []
         
         for response in model_responses:
-            for room in response.room_estimates:
+            # 에러 응답이나 빈 응답은 건너뛰기
+            if hasattr(response, 'raw_response') and isinstance(response.raw_response, str):
+                if "Error:" in response.raw_response or "error" in response.raw_response.lower():
+                    self.logger.debug(f"건너뛰기: {response.model_name} - 에러 응답")
+                    continue
+            
+            if response.total_work_items == 0 and not response.room_estimates:
+                self.logger.debug(f"건너뛰기: {response.model_name} - 데이터 없음")
+                continue
+            # room_estimates가 리스트일 수도 있고 dict일 수도 있음
+            rooms = response.room_estimates if isinstance(response.room_estimates, list) else []
+            
+            # work_items가 있는 경우 처리
+            if hasattr(response, 'work_items') and response.work_items:
+                for item in response.work_items:
+                    # room_name 처리 개선
+                    room_name = item.get('room_name', '')
+                    if not room_name or room_name == 'Unknown':
+                        room_name = item.get('room', 'Unknown')
+                    
+                    # reasoning 처리 개선
+                    reasoning = item.get('reasoning', '')
+                    if not reasoning:
+                        reasoning = item.get('description', '') or f"Required for {item.get('task_name', 'work')}"
+                    
+                    task_item = {
+                        'model': response.model_name,
+                        'room': room_name,
+                        'task_name': item.get('task_name', ''),
+                        'description': item.get('description', ''),
+                        'necessity': item.get('necessity', 'required'),
+                        'quantity': item.get('quantity', 0),
+                        'unit': item.get('unit', ''),
+                        'reasoning': reasoning
+                    }
+                    all_tasks.append(task_item)
+            
+            # rooms 구조 처리
+            for room in rooms:
                 room_name = room.get('name', 'Unknown')
                 tasks = room.get('tasks', [])
                 
+                # work_items가 있는 경우
+                if 'work_items' in room:
+                    tasks = room['work_items']
+                
                 for task in tasks:
+                    # reasoning 처리 개선
+                    reasoning = task.get('reasoning', '')
+                    if not reasoning:
+                        task_type = task.get('task_type', '')
+                        material = task.get('material_category', '')
+                        if task_type and material:
+                            reasoning = f"{task_type.capitalize()} work for {material}"
+                        elif task.get('description'):
+                            reasoning = task.get('description')
+                        else:
+                            reasoning = f"Required for {task.get('task_name', 'work')}"
+                    
                     task_item = {
                         'model': response.model_name,
                         'room': room_name,
@@ -61,11 +117,11 @@ class QualitativeMerger:
                         'necessity': task.get('necessity', 'required'),
                         'quantity': task.get('quantity', 0),
                         'unit': task.get('unit', ''),
-                        'reasoning': task.get('reasoning', '')
+                        'reasoning': reasoning
                     }
                     all_tasks.append(task_item)
         
-        print(f"전체 작업 항목 수집: {len(all_tasks)}개")
+        self.logger.info(f"전체 작업 항목 수집: {len(all_tasks)}개")
         return all_tasks
     
     def _group_similar_tasks(self, all_tasks: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
@@ -99,42 +155,62 @@ class QualitativeMerger:
         print(f"작업 그룹핑 완료: {len(task_groups)}개 그룹")
         return dict(task_groups)
     
-    def _are_similar_tasks(self, task1: str, task2: str, threshold: float = 0.8) -> bool:
-        """두 작업이 유사한지 판단"""
+    def _are_similar_tasks(self, task1: str, task2: str, threshold: float = 0.6) -> bool:
+        """두 작업이 유사한지 판단 (임계값 0.8 → 0.6으로 완화)"""
         similar_tasks = self.text_processor.find_similar_tasks(task1, [task2], threshold)
         return len(similar_tasks) > 0
     
     def _apply_consensus_rules(self, task_groups: Dict[str, List[Dict[str, Any]]], 
                              total_models: int) -> List[Dict[str, Any]]:
-        """합의 규칙 적용"""
+        """합의 규칙 적용 - 신뢰도 기반 합집합 방식"""
         consensus_tasks = []
+        
+        # 검증 수준 설정 (config에서 가져오거나 기본값 사용)
+        validation_mode = self.config.validation.mode if hasattr(self.config, 'validation') else 'balanced'  # strict, balanced, lenient
         
         for group_key, tasks in task_groups.items():
             model_count = len(set(task['model'] for task in tasks))
             
-            # 합의 판정
-            if model_count >= self.consensus_threshold:
-                # 대표 작업 선택 (가장 상세한 설명을 가진 것)
-                representative_task = max(tasks, key=lambda t: len(t.get('description', '')))
-                
-                # 합의 정보 추가
-                representative_task['consensus_level'] = model_count / total_models
-                representative_task['supporting_models'] = [t['model'] for t in tasks]
-                representative_task['group_size'] = len(tasks)
-                
-                consensus_tasks.append(representative_task)
+            # 대표 작업 선택 (가장 상세한 설명을 가진 것)
+            representative_task = max(tasks, key=lambda t: len(t.get('description', '')))
             
-            elif model_count == 1 and self._is_safety_critical_task(tasks[0]):
-                # 안전 관련 작업은 1개 모델만 제안해도 포함
-                safety_task = tasks[0].copy()
-                safety_task['consensus_level'] = 0.3  # 낮은 합의도
-                safety_task['safety_critical'] = True
-                safety_task['supporting_models'] = [safety_task['model']]
-                safety_task['group_size'] = 1
+            # 신뢰도 점수 계산
+            confidence_score = model_count / total_models
+            representative_task['consensus_level'] = confidence_score
+            # supporting_models에서 중복 제거 (각 모델은 한 번만 표시)
+            unique_models = list(set(t['model'] for t in tasks))
+            representative_task['supporting_models'] = unique_models
+            representative_task['group_size'] = len(tasks)
+            
+            # 신뢰도 레벨 분류
+            if confidence_score >= 0.67:  # 2/3 이상 모델 동의
+                representative_task['confidence_level'] = 'high'
+                consensus_tasks.append(representative_task)
+            elif confidence_score >= 0.34:  # 1/3 이상 모델 동의
+                representative_task['confidence_level'] = 'medium'
+                consensus_tasks.append(representative_task)
+            else:  # 단일 모델 제안 (confidence_score = 0.33)
+                representative_task['confidence_level'] = 'low'
                 
-                consensus_tasks.append(safety_task)
+                # 검증 수준에 따른 포함 여부 결정
+                if validation_mode == 'lenient':
+                    # Lenient: 모든 합리적인 작업 포함
+                    if self._is_valid_task(tasks[0]):
+                        consensus_tasks.append(representative_task)
+                elif validation_mode == 'strict':
+                    # Strict: 필수 카테고리만 포함
+                    if self._is_essential_task(tasks[0]):
+                        consensus_tasks.append(representative_task)
+                else:  # balanced (기본값)
+                    # Balanced: 필수 작업 또는 안전 관련 작업 포함
+                    if self._is_essential_task(tasks[0]) or self._is_safety_critical_task(tasks[0]):
+                        consensus_tasks.append(representative_task)
         
-        print(f"합의된 작업: {len(consensus_tasks)}개")
+        print(f"합의된 작업: {len(consensus_tasks)}개 (모드: {validation_mode})")
+        print(f"  - 높은 신뢰도: {sum(1 for t in consensus_tasks if t.get('confidence_level') == 'high')}개")
+        print(f"  - 중간 신뢰도: {sum(1 for t in consensus_tasks if t.get('confidence_level') == 'medium')}개")
+        print(f"  - 낮은 신뢰도: {sum(1 for t in consensus_tasks if t.get('confidence_level') == 'low')}개")
+        
         return consensus_tasks
     
     def _is_safety_critical_task(self, task: Dict[str, Any]) -> bool:
@@ -148,6 +224,63 @@ class QualitativeMerger:
         
         task_text = f"{task.get('task_name', '')} {task.get('description', '')}".lower()
         return any(keyword in task_text for keyword in safety_keywords)
+    
+    def _is_essential_task(self, task: Dict[str, Any]) -> bool:
+        """필수 작업인지 판단 (scope of work 기반)"""
+        task_name = task.get('task_name', '').lower()
+        task_type = task.get('task_type', '').lower()
+        
+        # 필수 작업 카테고리
+        essential_categories = [
+            'removal', 'remove', 'demolition', 'demo',  # 철거
+            'installation', 'install', 'replace',        # 설치
+            'structural', 'framing', 'support',          # 구조
+            'repair', 'fix', 'restore'                   # 수리
+        ]
+        
+        # Remove & Replace 작업은 항상 필수
+        if 'remove' in task_name and 'replace' in task_name:
+            return True
+        
+        # task_type이나 task_name에 필수 카테고리 포함 확인
+        for category in essential_categories:
+            if category in task_type or category in task_name:
+                return True
+        
+        return False
+    
+    def _is_valid_task(self, task: Dict[str, Any]) -> bool:
+        """유효한 작업인지 판단 (lenient 모드용)"""
+        task_name = task.get('task_name', '').strip()
+        quantity = task.get('quantity', 0)
+        unit = task.get('unit', '').strip()
+        
+        # 기본 유효성 검사
+        if not task_name or quantity <= 0 or not unit:
+            return False
+        
+        # 합리적인 작업 카테고리 (더 넓은 범위)
+        valid_categories = [
+            'remove', 'install', 'repair', 'replace', 'clean',
+            'protect', 'seal', 'paint', 'prime', 'prep',
+            'detach', 'reset', 'patch', 'sand', 'finish',
+            'disposal', 'haul', 'transport', 'cover',
+            'inspect', 'test', 'verify', 'measure'
+        ]
+        
+        task_name_lower = task_name.lower()
+        
+        # 카테고리 중 하나라도 포함되면 유효
+        for category in valid_categories:
+            if category in task_name_lower:
+                return True
+        
+        # 수량과 단위가 합리적인지 확인
+        valid_units = ['sqft', 'lf', 'sy', 'item', 'hour', 'each', 'unit', 'sf', 'sq ft']
+        if unit.lower() in valid_units and quantity > 0:
+            return True
+        
+        return False
     
     def _organize_by_room(self, consensus_tasks: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
         """방별로 작업 정리"""
@@ -192,11 +325,12 @@ class QuantitativeMerger:
     def __init__(self, config):
         self.config = config
         self.stats = StatisticalProcessor()
+        self.logger = get_logger('quantitative_merger')
         self.model_weights = config.model_weights.normalize()
     
     def merge_quantities(self, consensus_tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
         """수량 데이터 병합"""
-        print(f"수량 데이터 병합 시작: {len(consensus_tasks)}개 작업")
+        self.logger.info(f"수량 데이터 병합 시작: {len(consensus_tasks)}개 작업")
         
         merged_quantities = {}
         quantity_metadata = {}
@@ -316,13 +450,14 @@ class ResultMerger:
         
         self.qualitative_merger = QualitativeMerger(self.config)
         self.quantitative_merger = QuantitativeMerger(self.config)
+        self.logger = get_logger('result_merger')
     
     def merge_results(self, model_responses: List[ModelResponse]) -> MergedEstimate:
         """전체 결과 병합"""
         if not model_responses:
             return self._create_empty_result()
         
-        print(f"결과 병합 시작: {len(model_responses)}개 모델 결과")
+        self.logger.info(f"결과 병합 시작: {len(model_responses)}개 모델 결과")
         
         start_time = time.time()
         
@@ -341,7 +476,7 @@ class ResultMerger:
             time.time() - start_time
         )
         
-        print(f"결과 병합 완료: 신뢰도 {merged_estimate.overall_confidence:.2f}")
+        self.logger.info(f"결과 병합 완료: 신뢰도 {merged_estimate.overall_confidence:.2f}")
         return merged_estimate
     
     def _flatten_consensus_tasks(self, room_based_tasks: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
@@ -373,15 +508,28 @@ class ResultMerger:
             safety_margin_applied=self.config.safety_margins.low_variance  # 평균값
         )
         
-        # 방별 정리된 결과
+        # 방별 정리된 결과 - Phase 1과 Phase 2 모두 처리 가능하도록
         rooms_data = []
         for room_name, tasks in qualitative_result['merged_work_scope'].items():
+            # 각 작업에 수량 정보 추가 (있는 경우)
+            enhanced_tasks = []
+            for task in tasks:
+                task_key = f"{room_name}::{task.get('task_name', '')}"
+                if task_key in quantitative_result.get('merged_quantities', {}):
+                    task['merged_quantity'] = quantitative_result['merged_quantities'][task_key]
+                    task['quantity_metadata'] = quantitative_result.get('quantity_metadata', {}).get(task_key, {})
+                enhanced_tasks.append(task)
+            
             room_data = {
                 'name': room_name,
-                'tasks': tasks,
-                'task_count': len(tasks),
-                'high_consensus_tasks': len([t for t in tasks if t.get('consensus_level', 0) >= 0.8]),
-                'safety_critical_tasks': len([t for t in tasks if t.get('safety_critical', False)])
+                'tasks': enhanced_tasks,
+                'work_items': enhanced_tasks,  # Phase 2 호환성
+                'task_count': len(enhanced_tasks),
+                'high_consensus_tasks': len([t for t in enhanced_tasks if t.get('consensus_level', 0) >= 0.5]),
+                'safety_critical_tasks': len([t for t in enhanced_tasks if t.get('safety_critical', False)]),
+                'measurements': {},  # Phase 2를 위한 빈 measurements
+                'work_scope': {},  # Phase 2를 위한 빈 work_scope
+                'materials': {}  # Phase 2를 위한 빈 materials
             }
             rooms_data.append(room_data)
         
