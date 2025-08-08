@@ -24,6 +24,7 @@ class PhaseTestConfig:
     timeout_seconds: int = 300
     retry_attempts: int = 2
     save_outputs: bool = True
+    save_failures: bool = True  # 실패 시에도 저장할지 여부
     output_directory: str = "test_outputs"
     test_name: str = ""
     description: str = ""
@@ -184,23 +185,32 @@ class PhaseTestBase(ABC):
             execution_time = (datetime.now() - start_time).total_seconds()
             self.logger.error(f"Phase {self.phase_number} test failed: {e}")
             
-            return PhaseTestResult(
+            # Create failure result
+            failure_result = PhaseTestResult(
                 phase_number=self.phase_number,
                 success=False,
                 execution_time=execution_time,
                 error_message=str(e),
                 total_models=len(test_config.models)
             )
+            
+            # Save failure output for debugging (if requested)
+            if test_config.save_outputs and test_config.save_failures:
+                await self.save_test_output(failure_result, test_config)
+                self.logger.debug("Failure details saved for debugging")
+            
+            return failure_result
     
     async def save_test_output(self, result: PhaseTestResult, 
                              test_config: PhaseTestConfig) -> Path:
         """Save test output to file"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
-        # Create descriptive filename
+        # Create descriptive filename with success/failure indicator
         models_str = '_'.join([m[:3].upper() for m in test_config.models])
         test_name = test_config.test_name or f"phase{self.phase_number}"
-        filename = f"{test_name}_{models_str}_{test_config.validation_mode}_{timestamp}.json"
+        status_prefix = "SUCCESS" if result.success else "FAILED"
+        filename = f"{status_prefix}_{test_name}_{models_str}_{test_config.validation_mode}_{timestamp}.json"
         
         output_file = self.output_dir / filename
         
@@ -219,7 +229,8 @@ class PhaseTestBase(ABC):
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(output_data, f, indent=2, ensure_ascii=False)
         
-        self.logger.info(f"Test output saved: {output_file}")
+        status_msg = "SUCCESS" if result.success else "FAILED"
+        self.logger.info(f"Test output saved ({status_msg}): {output_file}")
         return output_file
     
     def load_fixture(self, fixture_name: str) -> Union[Dict[str, Any], List[Dict[str, Any]], str]:

@@ -76,6 +76,8 @@ Examples:
         single_parser.add_argument('--test-name', help='Custom test name')
         single_parser.add_argument('--prompt-version', 
                                  help='Prompt version to use (improved, fast, etc.)')
+        single_parser.add_argument('--no-save-failures', action='store_true',
+                                 help='Do not save failed test outputs')
         
         # Pipeline command
         pipeline_parser = subparsers.add_parser('pipeline', help='Run multiple phases in sequence')
@@ -151,7 +153,8 @@ Examples:
                     timeout_seconds=args.timeout,
                     test_name=args.test_name or f"cli_phase{args.phase}",
                     description=f"CLI test of Phase {args.phase}",
-                    prompt_version=args.prompt_version  # 프롬프트 버전 추가
+                    prompt_version=args.prompt_version,  # 프롬프트 버전 추가
+                    save_failures=not args.no_save_failures  # 실패 저장 옵션
                 )
             
             result = await self.orchestrator.run_single_phase(args.phase, config)
