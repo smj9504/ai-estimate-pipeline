@@ -175,8 +175,8 @@ class TrackedModelOrchestrator(ModelOrchestrator):
         
         # Display session info
         if self.enable_tracking:
-            print(f"\n🔍 Session: {self.session_id} | Phase: {self.current_phase}")
-            print(f"📊 Executing {len(available_models)} models in parallel...")
+            print(f"\n[SESSION] {self.session_id} | Phase: {self.current_phase}")
+            print(f"[PARALLEL] Executing {len(available_models)} models in parallel...")
             print("-" * 80)
         
         # Create tracking tasks
@@ -218,12 +218,12 @@ class TrackedModelOrchestrator(ModelOrchestrator):
                     if validation_report.is_valid and validation_report.quality_score >= min_quality_threshold:
                         successful_results.append(validated_response)
                         self.logger.info(
-                            f"✓ {model_name} - {validation_report.quality_level.value.upper()} "
+                            f"[OK] {model_name} - {validation_report.quality_level.value.upper()} "
                             f"({validation_report.quality_score:.1f}/100, {result.total_work_items}개 작업)"
                         )
                     else:
                         self.logger.warning(
-                            f"✗ {model_name} - 품질 기준 미달 "
+                            f"[FAIL] {model_name} - 품질 기준 미달 "
                             f"({validation_report.quality_score:.1f}/100, "
                             f"{len(validation_report.issues)}개 이슈)"
                         )
@@ -231,13 +231,13 @@ class TrackedModelOrchestrator(ModelOrchestrator):
                     # Basic validation
                     if result.total_work_items > 0 or (result.room_estimates and len(result.room_estimates) > 0):
                         successful_results.append(result)
-                        self.logger.info(f"✓ {model_name} 모델 성공 (작업 {result.total_work_items}개)")
+                        self.logger.info(f"[OK] {model_name} 모델 성공 (작업 {result.total_work_items}개)")
                     else:
                         error_msg = result.raw_response[:200] if isinstance(result.raw_response, str) else "빈 응답"
-                        self.logger.warning(f"✗ {model_name} 모델 응답 비어있음: {error_msg}")
+                        self.logger.warning(f"[FAIL] {model_name} 모델 응답 비어있음: {error_msg}")
             
             elif isinstance(result, Exception):
-                self.logger.error(f"✗ {model_name} 모델 실행 중 예외: {result}")
+                self.logger.error(f"[ERROR] {model_name} 모델 실행 중 예외: {result}")
         
         # Log validation summary
         if enable_validation_final and validation_reports:
@@ -297,13 +297,13 @@ class TrackedModelOrchestrator(ModelOrchestrator):
             
             if stats["summary"]["total_requests"] > 0:
                 print("-" * 80)
-                print(f"📊 Session Summary - {stats['summary']['total_requests']} requests")
-                print(f"💰 Total cost: ${stats['summary']['total_cost']:.6f}")
-                print(f"🎯 Success rate: {stats['summary']['success_rate']:.1%}")
-                print(f"⏱️  Avg time: {stats['summary']['avg_processing_time']:.2f}s")
+                print(f"[SUMMARY] Session Summary - {stats['summary']['total_requests']} requests")
+                print(f"[COST] Total cost: ${stats['summary']['total_cost']:.6f}")
+                print(f"[SUCCESS] Success rate: {stats['summary']['success_rate']:.1%}")
+                print(f"[TIME] Avg time: {stats['summary']['avg_processing_time']:.2f}s")
                 
                 if stats["breakdown"]["by_model"]:
-                    print("\n📋 By Model:")
+                    print("\n[MODELS] By Model:")
                     for model_key, data in stats["breakdown"]["by_model"].items():
                         print(f"  • {model_key}: {data['requests']} reqs, ${data['cost']:.6f}")
                 

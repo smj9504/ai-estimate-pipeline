@@ -362,7 +362,7 @@ Examples:
         
         print(f"\nPhase {phase_number} Test Results:")
         print("=" * 40)
-        print(f"Success: {'✓' if result.success else '✗'}")
+        print(f"Success: {'OK' if result.success else 'FAIL'}")
         print(f"Execution Time: {result.execution_time:.2f}s")
         
         if result.success:
@@ -374,7 +374,7 @@ Examples:
                 print("\nValidation Results:")
                 for key, value in result.validation_results.items():
                     if isinstance(value, dict) and 'valid' in value:
-                        status = '✓' if value['valid'] else '✗'
+                        status = 'OK' if value['valid'] else 'FAIL'
                         print(f"  {key}: {status}")
         else:
             print(f"Error: {result.error_message}")
@@ -388,13 +388,13 @@ Examples:
         print(f"\nPipeline Results:")
         print("=" * 50)
         print(f"Session ID: {session.session_id}")
-        print(f"Overall Success: {'✓' if session.overall_success else '✗'}")
+        print(f"Overall Success: {'OK' if session.overall_success else 'FAIL'}")
         print(f"Total Time: {session.total_execution_time:.2f}s")
         print(f"Phases Completed: {len(session.phase_results)}")
         
         print("\nPhase Results:")
         for result in session.phase_results:
-            status = '✓' if result.success else '✗'
+            status = 'OK' if result.success else 'FAIL'
             print(f"  Phase {result.phase_number}: {status} ({result.execution_time:.2f}s)")
             if not result.success and result.error_message:
                 print(f"    Error: {result.error_message}")
@@ -417,7 +417,7 @@ Examples:
             result = result_data['result']
             config = result_data['config']
             
-            status = '✓' if result.success else '✗'
+            status = 'OK' if result.success else 'FAIL'
             print(f"\n{i+1}. {config.test_name}: {status}")
             print(f"   Models: {config.models}")
             print(f"   Validation: {config.validation_mode}")
@@ -443,7 +443,7 @@ Examples:
         print(f"\nScenario Results: {scenario_result['scenario_name']}")
         print("=" * 60)
         print(f"Description: {scenario_result['description']}")
-        print(f"Overall Success: {'✓' if scenario_result['overall_success'] else '✗'}")
+        print(f"Overall Success: {'OK' if scenario_result['overall_success'] else 'FAIL'}")
         
         print("\nConfiguration Results:")
         for i, result in enumerate(scenario_result['results']):

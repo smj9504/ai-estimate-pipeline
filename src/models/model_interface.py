@@ -469,10 +469,10 @@ class AIModelInterface(ABC):
         
         # 콘솔에 요약 출력
         print(f"\n" + "="*80)
-        print(f"📝 {model_name} AI 응답 수신")
-        print(f"⏱️  처리 시간: {response_time:.2f}초")
-        print(f"📊 응답 크기: {len(raw_response)} characters")
-        print(f"💾 저장 위치: {debug_file}")
+        print(f"[RESPONSE] {model_name} AI 응답 수신")
+        print(f"[TIME] 처리 시간: {response_time:.2f}초")
+        print(f"[SIZE] 응답 크기: {len(raw_response)} characters")
+        print(f"[SAVE] 저장 위치: {debug_file}")
         
         # 응답 미리보기 (처음 500자)
         preview = raw_response[:500]
@@ -494,13 +494,13 @@ class AIModelInterface(ABC):
                     total_tasks += len(room.get('tasks', []))
             
             if total_tasks == 0:
-                print(f"⚠️  경고: {model_name}에서 작업이 생성되지 않았습니다!")
+                print(f"[WARNING] 경고: {model_name}에서 작업이 생성되지 않았습니다!")
                 self.logger.warning(f"{model_name} generated 0 tasks")
             else:
-                print(f"✅ {model_name}: {total_tasks}개 작업 생성")
+                print(f"[SUCCESS] {model_name}: {total_tasks}개 작업 생성")
                 self.logger.info(f"{model_name} generated {total_tasks} tasks")
         except Exception as e:
-            print(f"⚠️  작업 개수 파싱 실패: {e}")
+            print(f"[WARNING] 작업 개수 파싱 실패: {e}")
             self.logger.error(f"Failed to parse task count: {e}")
 
 class GPT4Interface(AIModelInterface):
@@ -632,7 +632,7 @@ class GPT4Interface(AIModelInterface):
                         {"role": "user", "content": full_prompt}
                     ],
                     response_format=response_format,
-                    max_tokens=4000,
+                    max_tokens=8000,
                     temperature=0.1,
                     timeout=self.timeout
                 )
@@ -650,7 +650,7 @@ class GPT4Interface(AIModelInterface):
                         },
                         {"role": "user", "content": full_prompt}
                     ],
-                    max_tokens=3000,
+                    max_tokens=8000,
                     temperature=0.1,
                     timeout=self.timeout
                 )
@@ -718,7 +718,7 @@ class ClaudeInterface(AIModelInterface):
             response = await asyncio.to_thread(
                 self.client.messages.create,
                 model=self.actual_model_name,
-                max_tokens=3000,
+                max_tokens=8000,
                 temperature=0.1,
                 messages=[{"role": "user", "content": full_prompt}]
             )
@@ -785,7 +785,7 @@ class GeminiInterface(AIModelInterface):
                 self.model.generate_content,
                 full_prompt,
                 generation_config=genai.types.GenerationConfig(
-                    max_output_tokens=3000,
+                    max_output_tokens=8000,
                     temperature=0.1
                 )
             )
@@ -981,9 +981,9 @@ class ModelOrchestrator:
             validation_results[model_name] = is_valid
             
             if is_valid:
-                self.logger.debug(f"✓ {model_name} API 키 유효")
+                self.logger.debug(f"[OK] {model_name} API 키 유효")
             else:
-                self.logger.warning(f"✗ {model_name} API 키 없음")
+                self.logger.warning(f"[FAIL] {model_name} API 키 없음")
         
         return validation_results
     
@@ -1057,16 +1057,16 @@ class ModelOrchestrator:
             total_fixes += report.auto_fixed
         
         self.logger.info(
-            f"🔍 Validation Summary: {valid_reports}/{total_reports} valid, "
+            f"[VALIDATION] Summary: {valid_reports}/{total_reports} valid, "
             f"avg quality: {avg_quality:.1f}/100"
         )
         
         if quality_counts:
             quality_summary = ", ".join([f"{level}: {count}" for level, count in quality_counts.items()])
-            self.logger.info(f"📊 Quality distribution: {quality_summary}")
+            self.logger.info(f"[QUALITY] Distribution: {quality_summary}")
         
         if total_issues > 0:
-            self.logger.info(f"⚠️  Total issues found: {total_issues}, auto-fixes applied: {total_fixes}")
+            self.logger.info(f"[ISSUES] Total issues found: {total_issues}, auto-fixes applied: {total_fixes}")
     
     def get_validation_enabled(self) -> bool:
         """Check if validation is enabled and available"""
