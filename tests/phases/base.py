@@ -203,16 +203,27 @@ class PhaseTestBase(ABC):
     
     async def save_test_output(self, result: PhaseTestResult, 
                              test_config: PhaseTestConfig) -> Path:
-        """Save test output to file"""
+        """Save test output to file with organized directory structure"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        date_str = datetime.now().strftime("%Y-%m-%d")
         
-        # Create descriptive filename with success/failure indicator
+        # Create organized directory structure
+        status_dir = "success" if result.success else "failed"
+        phase_dir = f"phase{self.phase_number}"
+        
+        # Build directory path: test_outputs/phases/phase1/success/2025-08-08/
+        organized_dir = self.output_dir / "phases" / phase_dir / status_dir / date_str
+        organized_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create simplified filename (no status prefix since it's in directory)
         models_str = '_'.join([m[:3].upper() for m in test_config.models])
         test_name = test_config.test_name or f"phase{self.phase_number}"
-        status_prefix = "SUCCESS" if result.success else "FAILED"
-        filename = f"{status_prefix}_{test_name}_{models_str}_{test_config.validation_mode}_{timestamp}.json"
         
-        output_file = self.output_dir / filename
+        # Add prompt version to filename if specified
+        version_suffix = f"_{test_config.prompt_version}" if test_config.prompt_version else ""
+        filename = f"{test_name}_{models_str}_{test_config.validation_mode}{version_suffix}_{timestamp}.json"
+        
+        output_file = organized_dir / filename
         
         # Prepare output data
         output_data = {

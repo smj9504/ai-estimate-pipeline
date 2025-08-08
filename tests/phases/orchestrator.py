@@ -295,12 +295,17 @@ class PhaseTestOrchestrator:
         }
     
     async def save_session_results(self, session: TestSession):
-        """Save test session results to file"""
+        """Save test session results to file with organized structure"""
         timestamp = session.start_time.strftime("%Y%m%d_%H%M%S")
-        filename = f"session_{session.session_id[:8]}_{timestamp}.json"
+        date_str = session.start_time.strftime("%Y-%m-%d")
         
-        output_file = self.output_dir / "sessions" / filename
-        output_file.parent.mkdir(exist_ok=True)
+        # Organize pipeline results by success/failure and date
+        status_dir = "success" if session.overall_success else "failed"
+        organized_dir = self.output_dir / "pipelines" / status_dir / date_str
+        organized_dir.mkdir(parents=True, exist_ok=True)
+        
+        filename = f"pipeline_{session.session_id[:8]}_{timestamp}.json"
+        output_file = organized_dir / filename
         
         import json
         with open(output_file, 'w', encoding='utf-8') as f:
@@ -308,12 +313,16 @@ class PhaseTestOrchestrator:
     
     async def save_comparison_report(self, phase_number: int, results: List[Dict[str, Any]], 
                                    analysis: Dict[str, Any]):
-        """Save comparison test report"""
+        """Save comparison test report with organized structure"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"comparison_phase{phase_number}_{timestamp}.json"
+        date_str = datetime.now().strftime("%Y-%m-%d")
         
-        output_file = self.output_dir / "comparisons" / filename
-        output_file.parent.mkdir(exist_ok=True)
+        # Organize comparisons by date
+        organized_dir = self.output_dir / "comparisons" / date_str
+        organized_dir.mkdir(parents=True, exist_ok=True)
+        
+        filename = f"comparison_phase{phase_number}_{timestamp}.json"
+        output_file = organized_dir / filename
         
         report = {
             'phase_number': phase_number,
@@ -328,13 +337,19 @@ class PhaseTestOrchestrator:
             json.dump(report, f, indent=2, ensure_ascii=False, default=str)
     
     async def save_scenario_results(self, scenario_results: Dict[str, Any]):
-        """Save test scenario results"""
+        """Save test scenario results with organized structure"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        date_str = datetime.now().strftime("%Y-%m-%d")
+        
+        # Organize scenarios by success/failure and date
+        overall_success = scenario_results.get('overall_success', False)
+        status_dir = "success" if overall_success else "failed"
+        organized_dir = self.output_dir / "scenarios" / status_dir / date_str
+        organized_dir.mkdir(parents=True, exist_ok=True)
+        
         scenario_name = scenario_results['scenario_name'].replace(' ', '_').lower()
         filename = f"scenario_{scenario_name}_{timestamp}.json"
-        
-        output_file = self.output_dir / "scenarios" / filename
-        output_file.parent.mkdir(exist_ok=True)
+        output_file = organized_dir / filename
         
         import json
         with open(output_file, 'w', encoding='utf-8') as f:

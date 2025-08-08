@@ -45,17 +45,22 @@ Examples:
   # Run single phase with default config
   python -m tests.phases.cli single --phase 1
   
+  # Run with prompt version and no failure saving
+  python -m tests.phases.cli single --phase 1 --prompt-version fast --no-save-failures
+  
   # Run pipeline with specific models
   python -m tests.phases.cli pipeline --phases 0 1 2 --models gpt4 claude
   
   # Run comparison test
   python -m tests.phases.cli compare --phase 1 --models gpt4 claude gemini
-  
-  # Run with custom config
-  python -m tests.phases.cli single --config tests/phases/configs/fast_test.yaml
-  
-  # List available configurations
-  python -m tests.phases.cli list-configs
+
+Output Structure:
+  test_outputs/
+  ├── phases/phase1/success/2025-08-08/    # Successful phase tests
+  ├── phases/phase1/failed/2025-08-08/     # Failed tests (for debugging)
+  ├── pipelines/success/2025-08-08/        # Successful pipeline tests
+  ├── comparisons/2025-08-08/              # Comparison test results
+  └── scenarios/success/2025-08-08/        # Scenario test results
             """
         )
         
