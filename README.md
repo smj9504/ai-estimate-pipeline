@@ -118,6 +118,126 @@ run.bat help         # 도움말 표시
 python -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+## 🏗️ 데이터 파이프라인 아키텍처
+
+### ELT 패턴 기반 데이터 흐름
+
+프로젝트는 **Extract-Load-Transform (ELT)** 패턴을 채택하여 대용량 AI 처리에 최적화된 데이터 파이프라인을 구축합니다:
+
+```
+📥 Extract (추출)     📦 Load (적재)      🔄 Transform (변환)
+    ↓                    ↓                   ↓
+JSON 입력 데이터  →  Raw Data Store  →  AI Model Processing
+    │                    │                   │
+    ├─ 측정값            ├─ 캐시 레이어        ├─ Phase 1: 작업 범위
+    ├─ 철거 범위         ├─ 중간 결과         ├─ Phase 2: 수량 산정
+    └─ 작업 명세         └─ 메타데이터        └─ 결과 병합
+```
+
+### 데이터 플로우 최적화 전략
+
+**1. 스트리밍 처리 (Streaming)**
+```python
+# Phase별 점진적 처리로 메모리 효율성 확보
+async def process_pipeline(data):
+    phase1_result = await process_phase1_stream(data)
+    phase2_result = await process_phase2_stream(phase1_result)
+    return merge_results(phase2_result)
+```
+
+**2. 배치 처리 (Batching)**
+```python
+# AI 모델 호출 배치화로 API 효율성 향상
+async def batch_ai_calls(prompts, batch_size=3):
+    for i in range(0, len(prompts), batch_size):
+        batch = prompts[i:i+batch_size]
+        results = await asyncio.gather(*[call_model(p) for p in batch])
+        yield results
+```
+
+**3. 캐시 기반 최적화**
+```python
+# 다층 캐싱으로 중복 계산 방지
+@cache_result(ttl=3600)  # 1시간 캐시
+async def get_ai_response(model, prompt, data_hash):
+    return await model.generate(prompt, data_hash)
+```
+
+### 품질 게이트웨이 (Quality Gateway)
+
+각 데이터 변환 단계마다 품질 검증 게이트웨이를 설치:
+
+```python
+# 4단계 품질 검증 파이프라인
+quality_gates = [
+    ("입력 검증", validate_input_schema),      # 스키마 준수 확인
+    ("비즈니스 규칙", validate_business_rules), # Remove & Replace 로직
+    ("일관성 검사", validate_consistency),     # 모델 간 응답 일관성
+    ("출력 검증", validate_output_format)     # 최종 형식 검증
+]
+
+for gate_name, validator in quality_gates:
+    if not validator(data):
+        raise QualityGateError(f"{gate_name} 검증 실패")
+```
+
+### 모니터링 및 관찰 가능성 (Observability)
+
+**실시간 메트릭 수집**:
+```python
+# 파이프라인 성능 지표 실시간 모니터링
+pipeline_metrics = {
+    "처리량": "건/시간",
+    "지연시간": "평균 응답시간",
+    "오류율": "실패/전체 요청",
+    "비용 효율성": "$/건"
+}
+```
+
+**분산 추적 (Distributed Tracing)**:
+```python
+# 요청별 전체 파이프라인 추적
+@trace_request
+async def process_estimate(request_id, data):
+    with tracer.start_span("phase1") as span1:
+        phase1_result = await phase1_processor(data)
+        span1.set_attribute("confidence", phase1_result.confidence)
+    
+    with tracer.start_span("phase2") as span2:
+        phase2_result = await phase2_processor(phase1_result)
+        span2.set_attribute("items_count", len(phase2_result.items))
+    
+    return merge_results([phase1_result, phase2_result])
+```
+
+### 확장성 및 성능 최적화
+
+**수평 확장 (Horizontal Scaling)**:
+```yaml
+# Docker Compose로 멀티 인스턴스 배포
+version: '3.8'
+services:
+  ai-estimator:
+    image: ai-estimate-pipeline:latest
+    replicas: 3
+    environment:
+      - LOAD_BALANCER_ENABLED=true
+      - CACHE_REDIS_URL=redis://cache:6379
+```
+
+**비동기 처리 최적화**:
+```python
+# 3개 AI 모델 병렬 호출로 처리 시간 1/3 단축
+async def parallel_ai_processing(data):
+    tasks = [
+        gpt4_model.process(data),
+        claude_model.process(data),
+        gemini_model.process(data)
+    ]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    return merge_consensus(results)
+```
+
 ## 📁 Project Structure
 
 ```
@@ -188,9 +308,40 @@ ai-estimate-pipeline/
 - ⏳ **Phase 5**: Final Estimate - 최종 견적 완성
 - ⏳ **Phase 6**: JSON Formatting - 클라이언트 형식 출력
 
-## 🧪 Testing
+## 🧪 Testing Strategy & Framework
 
-### 기본 테스트
+### 테스트 전략 개요
+
+프로젝트는 **이중 트랙 접근법(Fast Track vs Full Track)**을 통해 개발 속도와 품질을 모두 확보합니다:
+
+- **Fast Track**: 빠른 피드백을 위한 경량화된 테스트
+- **Full Track**: 품질 보증을 위한 포괄적 테스트
+- **테스트 피라미드**: 유닛 → 통합 → E2E → Phase별 → 파이프라인 전체
+
+### 테스트 아키텍처
+
+```
+테스트 피라미드 구조:
+          ┌─────────────────┐
+          │ 파이프라인 통합   │ ← 전체 Phase 연계 테스트
+          │   (Phase 0-2)   │
+          └─────────────────┘
+         ┌──────────────────────┐
+         │    Phase별 독립     │ ← Phase 1, 2 개별 테스트
+         │   (단위 기능 검증)   │
+         └──────────────────────┘
+        ┌────────────────────────────┐
+        │      통합 테스트 (E2E)      │ ← API → AI Models → 병합
+        │   (ModelInterface + Merger) │
+        └────────────────────────────┘
+       ┌──────────────────────────────────┐
+       │         유닛 테스트              │ ← 개별 모듈/클래스
+       │  (단일 클래스/메서드 검증)       │
+       └──────────────────────────────────┘
+```
+
+### 기본 테스트 실행
+
 ```bash
 # 기본 테스트 실행
 python run.py test
@@ -205,142 +356,379 @@ pytest tests/test_model_interface.py
 pytest -v
 ```
 
-### Phase별 테스트 시스템
-프로젝트는 체계적인 Phase 테스트 구조를 제공합니다:
+### Phase별 독립 테스트 (Fast Track)
+
+각 Phase를 독립적으로 테스트하여 빠른 개발 사이클 지원:
 
 ```bash
 # Phase 1 단독 테스트 (기본: 전체 모델)
 python run_phase_tests.py single --phase 1
 
+# Phase 2 단독 테스트 (특정 모델 조합)
+python run_phase_tests.py single --phase 2 --models gpt4 claude
+
+# 캐시된 Phase 1 결과로 Phase 2 테스트 (빠른 반복)
+python run_phase_tests.py single --phase 2 --use-cache --models gpt4 claude
+```
+
+### 파이프라인 통합 테스트 (Full Track)
+
+전체 워크플로우를 검증하여 품질 보증:
+
+```bash
 # 전체 파이프라인 테스트 (Phase 0→1→2)
 python run_phase_tests.py pipeline --phases 0 1 2
 
-# 모델 조합 비교 테스트
-python run_phase_tests.py compare --phase 1 --compare-type models
+# 중간 Phase부터 파이프라인 테스트
+python run_phase_tests.py pipeline --phases 1 2
+
+# 실제 Phase 1 → Phase 2 데이터 흐름 검증
+python run_phase_tests.py pipeline --phases 1 2 --force-fresh
 ```
 
-#### AI 모델 선택 기능 ✨
+### 이중 트랙 테스트 전략
 
-각 테스트 명령어에서 `--models` 플래그를 사용하여 원하는 AI 모델 조합을 선택할 수 있습니다:
+프로젝트는 **개발 속도**와 **품질 보증**을 모두 확보하는 이중 트랙 접근법을 사용합니다:
+
+**Fast Track (캐시 활용)** - CI/CD 및 빠른 개발 피드백용
+- Phase 1 실행 결과를 `intermediate/` 폴더에 캐시
+- Phase 2 테스트 시 캐시된 결과 재사용
+- 실행 시간: 30초~2분
+- 사용 케이스: 개발 중 빠른 반복, CI/CD 파이프라인
+
+**Full Track (전체 실행)** - 정확도 검증 및 최종 품질 보증용  
+- Phase 1 → Phase 2 전체 파이프라인 실제 실행
+- AI 모델의 실시간 응답으로 정확도 검증
+- 실행 시간: 2분~5분
+- 사용 케이스: PR 머지 전, 배포 전 검증
+
+### CI/CD 최적화 테스트
+
+지속적 통합을 위한 빠른 검증:
 
 ```bash
-# 단일 모델 테스트
-python run_phase_tests.py single --phase 1 --models gpt4
-python run_phase_tests.py single --phase 1 --models claude
-python run_phase_tests.py single --phase 1 --models gemini
-
-# 두 모델 조합 테스트
-python run_phase_tests.py single --phase 1 --models gpt4 claude
-python run_phase_tests.py single --phase 1 --models claude gemini
-python run_phase_tests.py single --phase 1 --models gpt4 gemini
-
-# 전체 모델 테스트 (명시적 지정)
-python run_phase_tests.py single --phase 1 --models gpt4 claude gemini
-
-# 파이프라인에서 모델 선택
-python run_phase_tests.py pipeline --phases 0 1 2 --models gpt4 claude
-
-# 모델 비교 테스트에서 특정 모델들만 비교
-python run_phase_tests.py compare --phase 1 --models gpt4 claude --compare-type models
-```
-
-#### 프롬프트 버전 선택 기능 🚀
-
-`--prompt-version` 플래그를 사용하여 성능과 품질에 따른 프롬프트 버전을 선택할 수 있습니다:
-
-```bash
-# 기본 버전 사용 (안정적, 균형 잡힌 성능)
-python run_phase_tests.py single --phase 1 --models gpt4
-
-# 빠른 버전 사용 (성능 최적화 - 30-60초)
-python run_phase_tests.py single --phase 1 --models gpt4 --prompt-version fast
-
-# 개선된 버전 사용 (고품질 - 2-4분, 95%+ 정확도)
-python run_phase_tests.py single --phase 1 --models gpt4 --prompt-version improved
-
-# 커스텀 버전 사용
-python run_phase_tests.py single --phase 1 --models gpt4 --prompt-version v2
-```
-
-**프롬프트 버전별 특징**:
-
-| 버전 | 처리 시간 | 품질 | 사용 케이스 |
-|------|----------|------|-------------|
-| **fast** | 30-60초 | 85% | 빠른 테스트, 개발 환경 |
-| **기본** | 60-120초 | 90% | 일반적인 운영 환경 |
-| **improved** | 120-240초 | 95%+ | 고품질 요구, 최종 검토 |
-
-**사용 가능한 모델 조합**:
-
-| 선택 | 명령어 예시 | 설명 |
-|------|------------|------|
-| **GPT-4 단독** | `--models gpt4` | OpenAI GPT-4만 사용 |
-| **Claude 단독** | `--models claude` | Anthropic Claude만 사용 |
-| **Gemini 단독** | `--models gemini` | Google Gemini만 사용 |
-| **GPT+Claude** | `--models gpt4 claude` | 2모델 조합 |
-| **Claude+Gemini** | `--models claude gemini` | 2모델 조합 |
-| **GPT+Gemini** | `--models gpt4 gemini` | 2모델 조합 |
-| **전체 모델** | `--models gpt4 claude gemini` | 3모델 조합 (기본값) |
-
-**도움말 확인**:
-```bash
-python run_phase_tests.py single --help  # 단일 Phase 테스트 옵션
-python run_phase_tests.py pipeline --help  # 파이프라인 테스트 옵션
-python run_phase_tests.py compare --help   # 비교 테스트 옵션
-```
-
-#### 테스트 데이터 구조
-```
-test_data/
-├── sample_demo.json          # 철거 범위 데이터
-├── sample_measurement.json   # 측정 데이터
-└── sample_intake_form.txt    # 작업 범위 입력 양식
-```
-
-각 프로젝트는 위 3가지 데이터를 필요로 하며, 테스트 시스템은 실제 프로젝트 데이터를 사용합니다.
-
-### AI 모델 조합 테스트
-`docs/AI_SYSTEM_ENHANCEMENT_STRATEGIES.md`에 따라 모든 가능한 AI 모델 조합을 체계적으로 테스트할 수 있습니다:
-
-#### 빠른 실행
-```bash
-# 필수 테스트 (7개 구성)
+# CI용 필수 테스트 (7개 핵심 구성, ~5분)
 python -m tests.model_combinations.test_runner --test-type essential
 
-# 성능 비교 테스트 (10개 구성)
+# 성능 벤치마크 테스트 (10개 구성, ~10분)
 python -m tests.model_combinations.test_runner --test-type performance
 
-# 전체 포괄적 테스트 (21개 구성)
+# 전체 포괄적 테스트 (21개 구성, ~30분)
 python -m tests.model_combinations.test_runner --test-type comprehensive
 ```
 
-#### 테스트 매트릭스
-- **단일 모델**: GPT-4, Claude, Gemini 개별 테스트
-- **모델 쌍**: GPT-4+Claude, GPT-4+Gemini, Claude+Gemini
-- **전체 조합**: GPT-4+Claude+Gemini
-- **검증 모드**: Strict, Balanced, Lenient
-- **처리 방식**: Parallel, Sequential
+## 📊 테스트 데이터 관리 및 품질 보증
 
-#### 테스트 결과 비교
+### 테스트 데이터 계층 구조
+
+프로젝트는 ELT(Extract-Load-Transform) 패턴을 기반으로 한 체계적인 데이터 관리 시스템을 제공합니다:
+
+```
+test_data/
+├── golden/                    # Golden Standard (검증된 예상 결과)
+│   ├── phase1_expected/       # Phase 1 검증된 출력 결과
+│   ├── phase2_expected/       # Phase 2 검증된 출력 결과
+│   └── pipeline_expected/     # 전체 파이프라인 예상 결과
+├── intermediate/              # 중간 결과물 (캐시 및 재사용) ⭐
+│   ├── phase1_outputs/        # Phase 1 실제 출력 (Phase 2 입력으로 재사용)
+│   ├── model_responses/       # 개별 AI 모델 응답 캐시
+│   └── validation_cache/      # 검증 결과 캐시
+├── synthetic/                 # 생성된 테스트 케이스
+│   ├── edge_cases/           # 엣지 케이스 (빈 데이터, 극값 등)
+│   ├── regression_tests/     # 회귀 테스트용 데이터
+│   └── stress_tests/         # 성능/부하 테스트용 데이터
+└── real_samples/             # 실제 프로젝트 데이터 (익명화)
+    ├── residential/          # 주거용 건축물 케이스
+    ├── commercial/           # 상업용 건축물 케이스
+    └── historical/           # 과거 프로젝트 아카이브
+```
+
+### Phase 1 → Phase 2 데이터 파이프라인 전략
+
+**핵심 질문과 답변:**
+
+**Q1: Phase 1 결과를 pipeline_test에서 재사용해야 하나?**
+- ✅ **권장**: 이중 트랙 접근법으로 상황에 맞게 선택
+- Fast Track: 캐시된 결과 재사용 (개발/CI용)
+- Full Track: 전체 재실행 (품질 검증용)
+
+**Q2: 각 Phase 독립 테스트 vs 통합 테스트 균형점은?**
+- Phase 개발 중: 독립 테스트로 빠른 반복
+- 기능 완성 후: 통합 테스트로 데이터 흐름 검증
+- 배포 전: 전체 파이프라인 테스트로 최종 품질 보증
+
+### 다층 캐싱 전략
+
+**L1 Cache (인메모리)**: 실행 중 AI 모델 응답 캐싱
+```python
+# 세션 내 AI 응답 재사용으로 API 비용 절약
+cache_key = f"{model_name}_{prompt_hash}_{data_hash}"
+if cache_key in session_cache:
+    return session_cache[cache_key]
+```
+
+**L2 Cache (파일시스템)**: Phase별 중간 결과 저장
+```bash
+# Phase 1 출력을 Phase 2 테스트에 재사용
+intermediate/
+├── phase1_outputs/
+│   ├── sample_demo_gpt4_claude.json  # 특정 모델 조합 결과
+│   └── sample_demo_all_models.json   # 전체 모델 결과
+```
+
+**L3 Cache (데이터베이스)**: 성능 메트릭 및 벤치마크 저장
+```sql
+-- 테스트 실행 이력 및 성능 추적
+CREATE TABLE test_performance (
+    test_id TEXT PRIMARY KEY,
+    model_combination TEXT,
+    execution_time REAL,
+    confidence_score REAL,
+    created_at TIMESTAMP
+);
+```
+
+### 데이터 품질 관리 (6차원 품질 평가)
+
+**1. 완전성 (Completeness)**: 누락된 필수 필드 검증
+```python
+completeness_score = (채워진_필드_수 / 전체_필수_필드_수) * 100
+```
+
+**2. 정확성 (Accuracy)**: 예상 결과 대비 실제 결과 일치도
+```python
+accuracy_score = (일치하는_값_수 / 전체_비교_값_수) * 100
+```
+
+**3. 일관성 (Consistency)**: 모델 간 응답 일관성 평가
+```python
+consistency_score = 1 - (표준편차 / 평균값)  # 변이계수 기반
+```
+
+**4. 유효성 (Validity)**: 비즈니스 규칙 준수 여부
+```python
+validity_checks = [
+    "Remove & Replace 로직 적용",
+    "측정값 정확 사용",
+    "demo_scope 중복 방지"
+]
+```
+
+**5. 적시성 (Timeliness)**: 처리 시간 효율성
+```python
+# 성능 벤치마크 (단위: 초)
+acceptable_times = {
+    "phase1_single_model": 30,
+    "phase1_all_models": 90,
+    "pipeline_full": 180
+}
+```
+
+**6. 유용성 (Usefulness)**: 실제 업무 활용 가능성
+```python
+usefulness_metrics = [
+    "신뢰도 점수 ≥ 85%",
+    "비즈니스 로직 정확도 ≥ 90%",
+    "사용자 승인률 ≥ 80%"
+]
+```
+
+### 데이터 버전 관리 및 계보 추적
+
+**Git 기반 데이터 버전 관리**:
+```bash
+# 테스트 데이터 변경사항 추적
+git log --oneline test_data/golden/
+git diff HEAD~1 test_data/golden/phase1_expected/
+
+# Phase 1 → Phase 2 데이터 의존성 추적
+git log --follow test_data/intermediate/phase1_outputs/
+```
+
+**데이터 계보 (Data Lineage) 추적**:
+```yaml
+# lineage.yaml - 데이터 생성 이력
+phase2_test_input.json:
+  source: "phase1_outputs/sample_demo_gpt4_claude.json"
+  phase1_metadata:
+    models: ["gpt4", "claude"]
+    execution_time: "2024-01-25 14:30:00"
+    confidence_score: 88.5
+  transformations:
+    - "phase1_execution (2024-01-25)"
+    - "quality_validation (2024-01-25)"
+    - "cache_storage (2024-01-25)"
+  usage_context: "Phase 2 독립 테스트 입력"
+  
+sample_demo_result.json:
+  source: "real_samples/residential/project_001.json"
+  transformations:
+    - "anonymization (2024-01-15)"
+    - "validation by domain expert (2024-01-20)"
+    - "golden standard approval (2024-01-25)"
+  validators: ["김전문가", "이건축사"]
+  confidence_level: "high"
+```
+
+### 테스트 데이터 관리 전략 
+
+**Smart Test Data Manager 구현 예정**:
+```python
+class TestDataManager:
+    """Phase 간 데이터 의존성 관리"""
+    
+    def get_phase2_input(self, mode="cached"):
+        if mode == "cached":
+            # Fast Track: 캐시된 Phase 1 결과 사용
+            return self.load_cached_phase1_output()
+        elif mode == "fresh":
+            # Full Track: Phase 1 실시간 실행
+            return self.execute_phase1_fresh()
+        elif mode == "golden":
+            # 결정적 테스트: 검증된 골든 데이터 사용
+            return self.load_golden_dataset()
+```
+
+## 🚀 테스트 실행 방법 가이드
+
+### 빠른 시작 (Quick Start Testing)
+
+```bash
+# 1. 기본 기능 검증 (30초)
+python run.py test
+
+# 2. Phase 1 단독 테스트 (2분)
+python run_phase_tests.py single --phase 1 --models gpt4
+
+# 3. Phase 2 캐시 활용 테스트 (30초) ⭐ NEW
+python run_phase_tests.py single --phase 2 --use-cache
+
+# 4. 전체 파이프라인 검증 (5분)
+python run_phase_tests.py pipeline --phases 0 1 2 --models gpt4 claude
+```
+
+### 개발 단계별 테스트 전략
+
+**🏃‍♂️ 개발 중 (빠른 피드백)**
+```bash
+# 단일 모델로 빠른 검증
+python run_phase_tests.py single --phase 1 --models gpt4 --prompt-version fast
+
+# Phase 2 개발 시 캐시 활용 (Phase 1 재실행 없이) ⭐
+python run_phase_tests.py single --phase 2 --use-cache --models claude
+
+# 특정 Phase만 집중 테스트
+python run_phase_tests.py single --phase 2 --models claude --prompt-version fast
+```
+
+**🔍 통합 테스트 (품질 확인)**
+```bash
+# 2개 모델 조합 검증
+python run_phase_tests.py single --phase 1 --models gpt4 claude
+
+# Phase 1→2 데이터 흐름 검증 ⭐
+python run_phase_tests.py pipeline --phases 1 2 --validate-flow
+
+# 전체 파이프라인 통합 테스트
+python run_phase_tests.py pipeline --phases 0 1 2 --models gpt4 claude gemini
+```
+
+**✅ 배포 전 (완전한 검증)**
+```bash
+# 모든 모델 조합 포괄적 테스트
+python -m tests.model_combinations.test_runner --test-type comprehensive
+
+# 전체 파이프라인 Fresh 실행 (캐시 무시) ⭐
+python run_phase_tests.py pipeline --phases 0 1 2 --force-fresh
+
+# 고품질 프롬프트로 최종 검증
+python run_phase_tests.py pipeline --phases 0 1 2 --prompt-version improved
+```
+
+### 테스트 옵션 매트릭스
+
+| 목적 | 명령어 | 소요시간 | 품질 수준 |
+|------|---------|----------|-----------|
+| **개발 중 빠른 검증** | `--models gpt4 --prompt-version fast` | 30-60초 | 85% |
+| **일반적인 검증** | `--models gpt4 claude` | 60-120초 | 90% |
+| **배포 전 완전 검증** | `--models gpt4 claude gemini --prompt-version improved` | 120-240초 | 95%+ |
+| **CI/CD 자동화** | `--test-type essential` | ~5분 | 88% |
+| **성능 벤치마크** | `--test-type performance` | ~10분 | 92% |
+| **완전한 품질 보증** | `--test-type comprehensive` | ~30분 | 95%+ |
+
+### 모델별 테스트 가이드
+
+**GPT-4 중심 개발**
+```bash
+# GPT-4의 안정성을 활용한 기준선 설정
+python run_phase_tests.py single --phase 1 --models gpt4
+python run_phase_tests.py single --phase 2 --models gpt4
+```
+
+**Claude 품질 검증**
+```bash
+# Claude의 세밀한 분석 능력 검증
+python run_phase_tests.py single --phase 1 --models claude --prompt-version improved
+```
+
+**Gemini 비용 효율성**
+```bash
+# Gemini의 비용 대비 성능 평가
+python run_phase_tests.py single --phase 1 --models gemini --prompt-version fast
+```
+
+**멀티모델 합의 검증**
+```bash
+# 3개 모델 합의 도출 과정 검증
+python run_phase_tests.py compare --phase 1 --models gpt4 claude gemini --compare-type models
+```
+
+### 고급 테스트 옵션
+
+#### 프롬프트 버전 최적화 🚀
+
+`--prompt-version` 플래그로 시나리오별 최적화된 프롬프트 사용:
+
+```bash
+# 빠른 개발용 (30-60초, 85% 품질)
+python run_phase_tests.py single --phase 1 --prompt-version fast
+
+# 기본 운영용 (60-120초, 90% 품질) - 기본값
+python run_phase_tests.py single --phase 1
+
+# 고품질 검토용 (120-240초, 95%+ 품질)
+python run_phase_tests.py single --phase 1 --prompt-version improved
+```
+
+#### 도움말 및 옵션 확인
+
+```bash
+python run_phase_tests.py single --help     # 단일 Phase 테스트 옵션
+python run_phase_tests.py pipeline --help   # 파이프라인 테스트 옵션  
+python run_phase_tests.py compare --help    # 비교 테스트 옵션
+```
+
+### 테스트 결과 분석 및 비교
+
+#### 자동화된 결과 비교
 ```bash
 # 테스트 결과 비교 도구
 python compare_test_results.py
 
-# 출력 파일 형식
+# 대화형 모델 조합 테스트
+python tests/demo_model_testing.py
+```
+
+#### 출력 파일 명명 규칙
+```
 output/
 ├── phase1_GCM_BAL_ROOM_SAMPLE_20250808_120000.json
 │   └── G=GPT-4, C=Claude, M=Gemini, BAL=Balanced, ROOM=방별처리
-├── phase1_G_STR_BATCH_081132_20250808_121500.json
+├── phase1_G_STR_BATCH_081132_20250808_121500.json  
 │   └── G=GPT-4만, STR=Strict, BATCH=일괄처리
 └── comparison_reports/
     ├── report_20250808.html    # HTML 시각화 리포트
     └── report_20250808.xlsx    # Excel 분석 리포트
-```
-
-### 대화형 테스트 데모
-```bash
-# 대화형 모델 조합 테스트
-python tests/demo_model_testing.py
 ```
 
 ## 🛠️ Development
