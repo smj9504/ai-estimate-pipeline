@@ -17,6 +17,16 @@ from src.models.data_models import ProjectData
 from src.phases.phase_manager import PhaseManager
 from src.utils.logger import get_logger, log_error
 
+# Token tracking imports
+try:
+    from src.api.tracking_endpoints import tracking_router
+    from src.tracking.tracked_orchestrator import TrackedModelOrchestrator
+    TRACKING_AVAILABLE = True
+except ImportError as e:
+    TRACKING_AVAILABLE = False
+    tracking_router = None
+    TrackedModelOrchestrator = None
+
 app = FastAPI(title="Reconstruction Estimator", version="2.0.0")
 
 # Logger 설정
@@ -24,6 +34,13 @@ logger = get_logger('main')
 
 # Phase Manager 인스턴스 (전역)
 phase_manager = PhaseManager()
+
+# Include tracking router if available
+if TRACKING_AVAILABLE and tracking_router:
+    app.include_router(tracking_router)
+    logger.info("Token tracking endpoints registered")
+else:
+    logger.warning("Token tracking endpoints not available")
 
 logger.info("FastAPI 서버 초기화 완료")
 
@@ -71,6 +88,17 @@ async def pipeline(request: Request):
     """Phase 기반 파이프라인 인터페이스"""
     return templates.TemplateResponse("pipeline.html", {"request": request})
 
+@app.get("/usage", response_class=HTMLResponse)
+async def usage_dashboard(request: Request):
+    """Token usage dashboard interface"""
+    if not TRACKING_AVAILABLE:
+        # Show simple message if tracking not available
+        return JSONResponse({
+            "error": "Token tracking system is not available. Please check the installation."
+        }, status_code=503)
+    
+    return templates.TemplateResponse("usage_dashboard.html", {"request": request})
+
 @app.post("/api/estimate/merge", response_model=EstimateResponse)
 async def merge_estimates(request: EstimateRequest):
     """
@@ -100,7 +128,17 @@ Instructions:
 Please provide your response in a structured format with clear work scope breakdown for each room."""
         
         # 2. 각 모델에 병렬로 프롬프트 전송
-        orchestrator = ModelOrchestrator()
+        # Use tracked orchestrator if available, otherwise fallback to regular
+        if TRACKING_AVAILABLE and TrackedModelOrchestrator:
+            orchestrator = TrackedModelOrchestrator(
+                enable_tracking=True, 
+                phase="estimate_merge"
+            )
+            logger.info("Using tracked orchestrator for token monitoring")
+        else:
+            orchestrator = ModelOrchestrator()
+            logger.info("Using regular orchestrator (tracking unavailable)")
+        
         available_models = orchestrator.get_available_models()
         
         # 요청된 모델 중 사용 가능한 것만 필터링
@@ -114,12 +152,19 @@ Please provide your response in a structured format with clear work scope breakd
         
         logger.info(f"사용 가능한 모델: {models_to_use}")
         
-        # 모델 병렬 실행
-        model_results = await orchestrator.run_parallel(
-            prompt=base_prompt, 
-            json_data=request.json_data, 
-            model_names=models_to_use
-        )
+        # 모델 병렬 실행 (tracked or regular)
+        if TRACKING_AVAILABLE and hasattr(orchestrator, 'run_parallel_tracked'):
+            model_results = await orchestrator.run_parallel_tracked(
+                prompt=base_prompt,
+                json_data=request.json_data,
+                model_names=models_to_use
+            )
+        else:
+            model_results = await orchestrator.run_parallel(
+                prompt=base_prompt, 
+                json_data=request.json_data, 
+                model_names=models_to_use
+            )
         
         if not model_results:
             return EstimateResponse(

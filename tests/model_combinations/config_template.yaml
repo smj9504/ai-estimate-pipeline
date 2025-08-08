@@ -1,0 +1,62 @@
+# Model Combination Testing Configuration Template
+# Copy this file and modify for your testing needs
+
+# Models to test (available: gpt4, claude, gemini)
+models:
+  - "gpt4"
+  - "claude" 
+  - "gemini"
+
+# Validation modes to test (available: strict, balanced, lenient)
+validation_modes:
+  - "balanced"
+  # - "strict"    # Uncomment for strict validation testing
+  # - "lenient"   # Uncomment for lenient validation testing
+
+# Processing modes (available: parallel, sequential)
+processing_modes:
+  - "parallel"
+  # - "sequential"  # Uncomment for sequential processing testing
+
+# Test configuration
+include_single_model: true    # Test individual models
+include_multi_model: true     # Test model combinations
+
+# Execution settings
+max_concurrent_tests: 3       # Maximum parallel test execution
+timeout_seconds: 300          # Timeout per test (5 minutes)
+retry_attempts: 2             # Retry attempts for failed tests
+save_outputs: true            # Save detailed test outputs
+
+# Optional: Override cost estimation (USD per API call)
+# model_costs:
+#   gpt4: 0.06
+#   claude: 0.05
+#   gemini: 0.02
+
+# Optional: Specific test configurations
+# custom_configurations:
+#   - name: "gpt4_vs_claude_balanced"
+#     models: ["gpt4", "claude"]
+#     validation_mode: "balanced"
+#     processing_mode: "parallel"
+#     description: "Compare GPT-4 vs Claude with balanced validation"
+#   
+#   - name: "all_models_strict"
+#     models: ["gpt4", "claude", "gemini"]
+#     validation_mode: "strict"
+#     processing_mode: "parallel"
+#     description: "All models with strict validation"
+
+# Test data configuration
+# test_data:
+#   demo_file: "test_data/sample_demo.json"
+#   measurement_file: "test_data/sample_measurement.json"
+#   intake_file: "test_data/sample_intake_form.txt"
+
+# Report configuration
+reports:
+  generate_html: true
+  generate_excel: true
+  include_detailed_results: true
+  max_results_in_html: 20

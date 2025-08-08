@@ -128,7 +128,7 @@ class AIModelInterface(ABC):
                         'quantity': task.get('quantity', 0.0),
                         'unit': task.get('unit', ''),
                         'room_name': room.get('room_name', ''),
-                        'reasoning': task.get('notes', ''),
+                        'reasoning': task.get('reasoning', task.get('notes', '')),
                         'task_type': task.get('task_type', ''),
                         'material_category': task.get('material_category', '')
                     }
@@ -511,6 +511,7 @@ class GPT4Interface(AIModelInterface):
         super().__init__(api_key, self.actual_model_name)
         self.client = openai.AsyncOpenAI(api_key=api_key)
         self.logger = get_logger('gpt4_interface')
+        self._last_api_response = None  # Store raw API response for token tracking
     
     async def call_model(self, prompt: str, json_data: Dict[str, Any]) -> ModelResponse:
         """GPT-4 모델 호출 with Structured Outputs"""
@@ -635,6 +636,9 @@ class GPT4Interface(AIModelInterface):
                     temperature=0.1,
                     timeout=self.timeout
                 )
+                
+                # Store raw response for token tracking
+                self._last_api_response = response
             else:
                 # Fallback for older models
                 response = await self.client.chat.completions.create(
@@ -650,6 +654,9 @@ class GPT4Interface(AIModelInterface):
                     temperature=0.1,
                     timeout=self.timeout
                 )
+                
+                # Store raw response for token tracking
+                self._last_api_response = response
             
             raw_response = response.choices[0].message.content
             response_time = time.time() - start_time
@@ -694,6 +701,7 @@ class ClaudeInterface(AIModelInterface):
         super().__init__(api_key, self.actual_model_name)
         self.client = Anthropic(api_key=api_key)
         self.logger = get_logger('claude_interface')
+        self._last_api_response = None  # Store raw API response for token tracking
     
     async def call_model(self, prompt: str, json_data: Dict[str, Any]) -> ModelResponse:
         """Claude 모델 호출"""
@@ -714,6 +722,9 @@ class ClaudeInterface(AIModelInterface):
                 temperature=0.1,
                 messages=[{"role": "user", "content": full_prompt}]
             )
+            
+            # Store raw response for token tracking
+            self._last_api_response = response
             
             raw_response = response.content[0].text
             response_time = time.time() - start_time
@@ -756,6 +767,7 @@ class GeminiInterface(AIModelInterface):
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel(self.actual_model_name)
         self.logger = get_logger('gemini_interface')
+        self._last_api_response = None  # Store raw API response for token tracking
     
     async def call_model(self, prompt: str, json_data: Dict[str, Any]) -> ModelResponse:
         """Gemini 모델 호출"""
@@ -777,6 +789,9 @@ class GeminiInterface(AIModelInterface):
                     temperature=0.1
                 )
             )
+            
+            # Store raw response for token tracking
+            self._last_api_response = response
             
             raw_response = response.text
             response_time = time.time() - start_time
@@ -811,13 +826,25 @@ class GeminiInterface(AIModelInterface):
             )
 
 class ModelOrchestrator:
-    """Enhanced model orchestrator with integrated response validation"""
+    """Enhanced model orchestrator with integrated response validation and token tracking"""
     
-    def __init__(self, enable_validation: bool = True):
+    def __init__(self, enable_validation: bool = True, enable_tracking: bool = True):
         self.config_loader = ConfigLoader()
         self.api_keys = self.config_loader.get_api_keys()
         self.model_names = self.config_loader.get_model_names()
         self.logger = get_logger('model_orchestrator')
+        
+        # Token tracking setup
+        self.enable_tracking = enable_tracking
+        self.token_tracker = None
+        if enable_tracking:
+            try:
+                from src.tracking.token_tracker import TokenTracker
+                self.token_tracker = TokenTracker()
+                self.logger.info("Token tracking enabled")
+            except ImportError as e:
+                self.logger.warning(f"Token tracking unavailable: {e}")
+                self.enable_tracking = False
         
         # Response validation settings
         self.enable_validation = enable_validation

@@ -1,0 +1,11 @@
+# Configuration for comparing different model combinations
+phase_numbers: [1]
+models: ["gpt4"]  # Will be overridden in comparison tests
+validation_mode: "balanced"
+process_by_room: true
+timeout_seconds: 300
+retry_attempts: 2
+save_outputs: true
+output_directory: "test_outputs"
+test_name: "model_comparison"
+description: "Configuration for comparing different AI model combinations"

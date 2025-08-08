@@ -6,59 +6,17 @@ import json
 
 from src.models.model_interface import ModelOrchestrator, GPT4Interface, ClaudeInterface
 from src.models.data_models import ModelResponse
+from tests.utils.test_data_loader import TestDataLoader, get_test_data_loader
 
 @pytest.fixture
-def sample_json_data():
-    """테스트용 샘플 JSON 데이터"""
-    return [
-        {
-            "Jobsite": "Test Project",
-            "occupancy": "Single Family",
-            "company": {}
-        },
-        {
-            "location": "1st Floor",
-            "rooms": [
-                {
-                    "name": "Living Room",
-                    "material": {
-                        "Floor": "Hardwood",
-                        "wall": "Drywall",
-                        "ceiling": "Drywall",
-                        "Baseboard": "Wood",
-                        "Quarter Round": "Wood"
-                    },
-                    "work_scope": {
-                        "Flooring": "Remove & Replace",
-                        "Wall": "Paint",
-                        "Ceiling": "Paint",
-                        "Baseboard": "Remove & Replace",
-                        "Quarter Round": "",
-                        "Paint Scope": "Full Room"
-                    },
-                    "measurements": {
-                        "height": 9.5,
-                        "wall_area_sqft": 400.0,
-                        "ceiling_area_sqft": 200.0,
-                        "floor_area_sqft": 200.0,
-                        "walls_and_ceiling_area_sqft": 600.0,
-                        "flooring_area_sy": 22.22,
-                        "ceiling_perimeter_lf": 60.0,
-                        "floor_perimeter_lf": 60.0,
-                        "openings": []
-                    },
-                    "demo_scope(already demo'd)": {
-                        "Ceiling Drywall(sq_ft)": 50,
-                        "Wall Drywall(sq_ft)": 100
-                    },
-                    "additional_notes": {
-                        "protection": ["Floor protection required"],
-                        "detach_reset": ["Light fixtures", "Ceiling fans"]
-                    }
-                }
-            ]
-        }
-    ]
+def test_data_loader():
+    """테스트 데이터 로더"""
+    return get_test_data_loader()
+
+@pytest.fixture
+def sample_json_data(test_data_loader):
+    """실제 테스트 데이터를 사용한 샘플 JSON 데이터"""
+    return test_data_loader.create_combined_project_data()
 
 @pytest.fixture
 def sample_prompt():
@@ -184,8 +142,36 @@ def mock_config():
     return AppConfig()
 
 @pytest.fixture
-def sample_model_responses():
-    """테스트용 모델 응답들"""
+def sample_model_responses(test_data_loader):
+    """실제 프로젝트 데이터 기반의 모델 응답들"""
+    demo_data = test_data_loader.load_demo_data()
+    measurement_data = test_data_loader.load_measurement_data()
+    
+    # Use data from actual test files for more realistic responses
+    living_room_demo = None
+    living_room_measurement = None
+    
+    # Find Living Room data from test files
+    for floor in demo_data:
+        for room in floor.get('rooms', []):
+            if 'living' in room['name'].lower():
+                living_room_demo = room
+                break
+        if living_room_demo:
+            break
+    
+    for floor in measurement_data:
+        for room in floor.get('rooms', []):
+            if 'living' in room['name'].lower():
+                living_room_measurement = room
+                break
+        if living_room_measurement:
+            break
+    
+    # Extract realistic quantities from test data
+    floor_area = living_room_measurement['measurements']['floor_area_sqft'] if living_room_measurement else 150.0
+    baseboard_lf = living_room_measurement['measurements']['floor_perimeter_lf'] if living_room_measurement else 60.0
+    
     return [
         ModelResponse(
             model_name="gpt-4",
@@ -195,23 +181,30 @@ def sample_model_responses():
                     "tasks": [
                         {
                             "task_name": "Remove existing flooring",
-                            "description": "Remove hardwood flooring",
+                            "description": "Remove carpet flooring from living room",
                             "necessity": "required",
-                            "quantity": 200,
+                            "quantity": floor_area,
                             "unit": "sq_ft"
                         },
                         {
                             "task_name": "Install new flooring",
-                            "description": "Install hardwood flooring",
+                            "description": "Install laminate wood flooring",
                             "necessity": "required", 
-                            "quantity": 200,
+                            "quantity": floor_area,
                             "unit": "sq_ft"
+                        },
+                        {
+                            "task_name": "Remove existing baseboard",
+                            "description": "Remove damaged wood baseboards",
+                            "necessity": "required",
+                            "quantity": baseboard_lf,
+                            "unit": "lf"
                         }
                     ]
                 }
             ],
             processing_time=2.1,
-            total_work_items=2,
+            total_work_items=3,
             confidence_self_assessment=0.85
         ),
         ModelResponse(

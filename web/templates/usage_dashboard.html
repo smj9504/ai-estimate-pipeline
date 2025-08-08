@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Usage Dashboard - AI Estimate Pipeline</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .stat-card {
+            @apply bg-white rounded-lg shadow p-6 border;
+        }
+        .stat-value {
+            @apply text-3xl font-bold text-gray-900;
+        }
+        .stat-label {
+            @apply text-sm font-medium text-gray-500 uppercase tracking-wider;
+        }
+        .btn-primary {
+            @apply bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition duration-200;
+        }
+        .btn-secondary {
+            @apply bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded-lg transition duration-200;
+        }
+        .loading {
+            @apply opacity-50 pointer-events-none;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-4">
+                    <div class="flex items-center">
+                        <h1 class="text-2xl font-bold text-gray-900">📊 Token Usage Dashboard</h1>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button id="refreshBtn" class="btn-secondary">
+                            🔄 Refresh
+                        </button>
+                        <select id="timeframeSelect" class="border border-gray-300 rounded-lg px-3 py-2">
+                            <option value="1">Last 24 hours</option>
+                            <option value="7" selected>Last 7 days</option>
+                            <option value="30">Last 30 days</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalRequests">-</div>
+                    <div class="stat-label">Total Requests</div>
+                    <div class="text-sm text-gray-600 mt-1">
+                        <span id="successRate" class="text-green-600">-% success</span>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-value text-blue-600" id="totalTokens">-</div>
+                    <div class="stat-label">Total Tokens</div>
+                    <div class="text-sm text-gray-600 mt-1" id="avgTokens">- avg per request</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-value text-green-600" id="totalCost">$-</div>
+                    <div class="stat-label">Total Cost</div>
+                    <div class="text-sm text-gray-600 mt-1" id="avgCost">$- per request</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-value text-purple-600" id="avgTime">-s</div>
+                    <div class="stat-label">Avg Response Time</div>
+                    <div class="text-sm text-gray-600 mt-1" id="projectedMonthlyCost">$- monthly projection</div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <!-- Cost Distribution Chart -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">💰 Cost by Model</h3>
+                    <div class="h-64">
+                        <canvas id="costChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Usage Timeline Chart -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">📈 Usage Trend</h3>
+                    <div class="h-64">
+                        <canvas id="usageChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Performance Table -->
+            <div class="bg-white rounded-lg shadow mb-8">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-900">🤖 Model Performance</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Model</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requests</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tokens</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Success Rate</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modelTableBody" class="bg-white divide-y divide-gray-200">
+                            <!-- Dynamic content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-900">🕒 Recent Activity</h3>
+                    <button id="loadMoreBtn" class="btn-secondary text-sm">Load More</button>
+                </div>
+                <div class="divide-y divide-gray-200" id="recentActivity">
+                    <!-- Dynamic content -->
+                </div>
+            </div>
+
+            <!-- Export Section -->
+            <div class="mt-8 bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">📤 Export Data</h3>
+                <div class="flex flex-wrap gap-4">
+                    <button id="exportCsvBtn" class="btn-primary">Export CSV</button>
+                    <button id="exportJsonBtn" class="btn-primary">Export JSON</button>
+                    <button id="generateReportBtn" class="btn-secondary">Generate Report</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-lg p-6 flex items-center space-x-4">
+            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            <span class="text-gray-700">Loading...</span>
+        </div>
+    </div>
+
+    <script>
+        class UsageDashboard {
+            constructor() {
+                this.costChart = null;
+                this.usageChart = null;
+                this.currentTimeframe = 7;
+                this.recentLimit = 20;
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.loadDashboardData();
+                
+                // Auto-refresh every 30 seconds
+                setInterval(() => {
+                    this.loadDashboardData(false);
+                }, 30000);
+            }
+
+            setupEventListeners() {
+                document.getElementById('refreshBtn').addEventListener('click', () => {
+                    this.loadDashboardData();
+                });
+
+                document.getElementById('timeframeSelect').addEventListener('change', (e) => {
+                    this.currentTimeframe = parseInt(e.target.value);
+                    this.loadDashboardData();
+                });
+
+                document.getElementById('loadMoreBtn').addEventListener('click', () => {
+                    this.recentLimit += 20;
+                    this.loadRecentActivity();
+                });
+
+                document.getElementById('exportCsvBtn').addEventListener('click', () => {
+                    this.exportData('csv');
+                });
+
+                document.getElementById('exportJsonBtn').addEventListener('click', () => {
+                    this.exportData('json');
+                });
+
+                document.getElementById('generateReportBtn').addEventListener('click', () => {
+                    this.generateReport();
+                });
+            }
+
+            async loadDashboardData(showLoading = true) {
+                if (showLoading) {
+                    this.showLoading();
+                }
+
+                try {
+                    const response = await fetch('/api/tracking/dashboard/summary');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.updateSummaryCards(data.data);
+                        this.updateModelTable(data.data.model_breakdown);
+                        this.updateCharts(data.data);
+                        this.loadRecentActivity();
+                    } else {
+                        this.showError('Failed to load dashboard data');
+                    }
+                } catch (error) {
+                    console.error('Error loading dashboard:', error);
+                    this.showError('Error loading dashboard data');
+                } finally {
+                    if (showLoading) {
+                        this.hideLoading();
+                    }
+                }
+            }
+
+            updateSummaryCards(data) {
+                const timeframe = this.currentTimeframe === 1 ? 'today' : 
+                                this.currentTimeframe === 7 ? 'week' : 'month';
+                const stats = data.timeframes[timeframe];
+
+                document.getElementById('totalRequests').textContent = 
+                    this.formatNumber(stats.total_requests);
+                document.getElementById('successRate').textContent = 
+                    `${(stats.success_rate * 100).toFixed(1)}% success`;
+                document.getElementById('totalTokens').textContent = 
+                    this.formatNumber(stats.total_tokens);
+                document.getElementById('totalCost').textContent = 
+                    this.formatCurrency(stats.total_cost);
+                document.getElementById('avgTime').textContent = 
+                    `${stats.avg_processing_time.toFixed(2)}s`;
+
+                // Calculate averages
+                const avgTokens = stats.total_requests > 0 ? 
+                    (stats.total_tokens / stats.total_requests).toFixed(0) : 0;
+                const avgCost = stats.total_requests > 0 ? 
+                    (stats.total_cost / stats.total_requests) : 0;
+
+                document.getElementById('avgTokens').textContent = `${avgTokens} avg per request`;
+                document.getElementById('avgCost').textContent = `${this.formatCurrency(avgCost)} per request`;
+
+                // Projection
+                if (data.projections) {
+                    document.getElementById('projectedMonthlyCost').textContent = 
+                        `${this.formatCurrency(data.projections.monthly_projection)} monthly projection`;
+                }
+            }
+
+            updateModelTable(modelBreakdown) {
+                const tbody = document.getElementById('modelTableBody');
+                tbody.innerHTML = '';
+
+                if (!modelBreakdown || Object.keys(modelBreakdown).length === 0) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                            No model data available for the selected timeframe
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                    return;
+                }
+
+                Object.entries(modelBreakdown).forEach(([modelKey, data]) => {
+                    const row = document.createElement('tr');
+                    const [provider, model] = modelKey.split(':');
+                    
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="w-2 h-2 rounded-full mr-3 ${this.getProviderColor(provider)}"></div>
+                                <div>
+                                    <div class="text-sm font-medium text-gray-900">${model}</div>
+                                    <div class="text-xs text-gray-500">${provider}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${this.formatNumber(data.requests)}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${this.formatNumber(data.tokens)}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${this.formatCurrency(data.cost)}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="text-sm text-gray-900">${(data.success_rate * 100).toFixed(1)}%</div>
+                                <div class="ml-2 w-16 bg-gray-200 rounded-full h-2">
+                                    <div class="bg-green-600 h-2 rounded-full" 
+                                         style="width: ${(data.success_rate * 100).toFixed(1)}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${data.avg_processing_time.toFixed(2)}s
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+
+            updateCharts(data) {
+                this.updateCostChart(data.model_breakdown);
+                this.updateUsageChart(data.timeframes);
+            }
+
+            updateCostChart(modelBreakdown) {
+                if (!modelBreakdown || Object.keys(modelBreakdown).length === 0) {
+                    return;
+                }
+
+                const ctx = document.getElementById('costChart').getContext('2d');
+                
+                if (this.costChart) {
+                    this.costChart.destroy();
+                }
+
+                const labels = Object.keys(modelBreakdown).map(key => key.split(':')[1]);
+                const costs = Object.values(modelBreakdown).map(data => data.cost);
+                const colors = labels.map((_, i) => this.getChartColor(i));
+
+                this.costChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: costs,
+                            backgroundColor: colors,
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => {
+                                        const value = this.formatCurrency(context.raw);
+                                        const percentage = ((context.raw / costs.reduce((a, b) => a + b, 0)) * 100).toFixed(1);
+                                        return `${context.label}: ${value} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            updateUsageChart(timeframes) {
+                const ctx = document.getElementById('usageChart').getContext('2d');
+                
+                if (this.usageChart) {
+                    this.usageChart.destroy();
+                }
+
+                // Create mock timeline data (in a real implementation, you'd get this from the API)
+                const labels = [];
+                const requests = [];
+                const costs = [];
+
+                // Generate mock data points
+                for (let i = this.currentTimeframe; i >= 0; i--) {
+                    const date = new Date();
+                    date.setDate(date.getDate() - i);
+                    labels.push(date.toLocaleDateString());
+                    
+                    // Mock data - in reality, you'd get this from API
+                    const baseRequests = timeframes.week.total_requests / 7;
+                    const baseCost = timeframes.week.total_cost / 7;
+                    
+                    requests.push(Math.floor(baseRequests * (0.8 + Math.random() * 0.4)));
+                    costs.push(baseCost * (0.8 + Math.random() * 0.4));
+                }
+
+                this.usageChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Requests',
+                            data: requests,
+                            borderColor: '#3B82F6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.1,
+                            yAxisID: 'y'
+                        }, {
+                            label: 'Cost ($)',
+                            data: costs,
+                            borderColor: '#10B981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.1,
+                            yAxisID: 'y1'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: 'Requests'
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                title: {
+                                    display: true,
+                                    text: 'Cost ($)'
+                                },
+                                grid: {
+                                    drawOnChartArea: false,
+                                },
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top'
+                            }
+                        }
+                    }
+                });
+            }
+
+            async loadRecentActivity() {
+                try {
+                    const response = await fetch(`/api/tracking/recent?limit=${this.recentLimit}`);
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.updateRecentActivity(data.data);
+                    }
+                } catch (error) {
+                    console.error('Error loading recent activity:', error);
+                }
+            }
+
+            updateRecentActivity(records) {
+                const container = document.getElementById('recentActivity');
+                container.innerHTML = '';
+
+                if (!records || records.length === 0) {
+                    container.innerHTML = `
+                        <div class="px-6 py-8 text-center text-gray-500">
+                            No recent activity found
+                        </div>
+                    `;
+                    return;
+                }
+
+                records.forEach(record => {
+                    const div = document.createElement('div');
+                    div.className = 'px-6 py-4 flex items-center justify-between hover:bg-gray-50';
+                    
+                    const timestamp = new Date(record.timestamp).toLocaleString();
+                    const success = record.success;
+                    const statusIcon = success ? '✅' : '❌';
+                    const statusColor = success ? 'text-green-600' : 'text-red-600';
+                    
+                    div.innerHTML = `
+                        <div class="flex items-center space-x-4">
+                            <div class="text-lg">${statusIcon}</div>
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">${record.model_name}</div>
+                                <div class="text-xs text-gray-500">${record.phase || 'N/A'}</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm text-gray-900">${this.formatNumber(record.total_tokens)} tokens</div>
+                            <div class="text-xs text-gray-500">${this.formatCurrency(record.estimated_cost)}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm text-gray-900">${record.processing_time.toFixed(2)}s</div>
+                            <div class="text-xs text-gray-500">${timestamp}</div>
+                        </div>
+                    `;
+                    
+                    container.appendChild(div);
+                });
+            }
+
+            async exportData(format) {
+                try {
+                    const response = await fetch(`/api/tracking/export/${format}?days=${this.currentTimeframe}`);
+                    
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = url;
+                        a.download = `usage_export_${Date.now()}.${format}`;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                    } else {
+                        throw new Error('Export failed');
+                    }
+                } catch (error) {
+                    console.error('Export error:', error);
+                    this.showError('Failed to export data');
+                }
+            }
+
+            async generateReport() {
+                try {
+                    const reportType = this.currentTimeframe === 1 ? 'daily' : 
+                                     this.currentTimeframe === 7 ? 'weekly' : 'monthly';
+                    
+                    const response = await fetch(`/api/tracking/reports/${reportType}`);
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        // Open report in new window/tab
+                        const reportWindow = window.open('', '_blank');
+                        reportWindow.document.write(`
+                            <html>
+                                <head><title>Usage Report</title></head>
+                                <body>
+                                    <pre>${JSON.stringify(data.data, null, 2)}</pre>
+                                </body>
+                            </html>
+                        `);
+                    }
+                } catch (error) {
+                    console.error('Report generation error:', error);
+                    this.showError('Failed to generate report');
+                }
+            }
+
+            // Utility methods
+            formatNumber(num) {
+                if (num >= 1000000) {
+                    return (num / 1000000).toFixed(1) + 'M';
+                } else if (num >= 1000) {
+                    return (num / 1000).toFixed(1) + 'K';
+                } else {
+                    return num.toLocaleString();
+                }
+            }
+
+            formatCurrency(amount) {
+                if (amount === 0) return '$0.00';
+                if (amount < 0.001) return `$${amount.toFixed(6)}`;
+                if (amount < 0.1) return `$${amount.toFixed(4)}`;
+                return `$${amount.toFixed(2)}`;
+            }
+
+            getProviderColor(provider) {
+                const colors = {
+                    'openai': 'bg-blue-500',
+                    'anthropic': 'bg-orange-500',
+                    'google': 'bg-green-500'
+                };
+                return colors[provider] || 'bg-gray-500';
+            }
+
+            getChartColor(index) {
+                const colors = [
+                    '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
+                    '#06B6D4', '#84CC16', '#F97316', '#EC4899', '#6366F1'
+                ];
+                return colors[index % colors.length];
+            }
+
+            showLoading() {
+                document.getElementById('loadingOverlay').classList.remove('hidden');
+            }
+
+            hideLoading() {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+            }
+
+            showError(message) {
+                // Simple error display - in a real app, you'd use a proper notification system
+                alert(`Error: ${message}`);
+            }
+        }
+
+        // Initialize dashboard when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new UsageDashboard();
+        });
+    </script>
+</body>
+</html>

@@ -123,7 +123,11 @@ async def test_phase1_standalone():
     print("=" * 80)
     
     # Phase 0 출력 파일 확인 (있으면 사용, 없으면 샘플 사용)
-    phase0_file = Path("output/phase0_result.json")
+    # 최신 Phase 0 결과 파일 찾기
+    output_dir = Path("output")
+    phase0_files = sorted(output_dir.glob("phase0_result*.json"), reverse=True)
+    
+    phase0_file = phase0_files[0] if phase0_files else Path("output/phase0_result.json")
     
     if phase0_file.exists():
         print(f"\n기존 Phase 0 결과 파일 발견: {phase0_file}")
@@ -227,17 +231,58 @@ async def test_phase1_standalone():
             process_by_room=process_by_room
         )
         
-        # 결과 저장
+        # 결과 저장 - 테스트 조건을 파일명에 포함
         output_dir = Path("output")
         output_dir.mkdir(exist_ok=True)
         
+        # 테스트 조건을 파일명에 포함
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_file = output_dir / f"phase1_result_{timestamp}.json"
+        
+        # 모델 조합 약어 생성
+        model_abbr = {
+            'gpt4': 'G',
+            'claude': 'C', 
+            'gemini': 'M'
+        }
+        models_str = ''.join([model_abbr.get(m, m[0].upper()) for m in models_to_use])
+        
+        # 검증 모드 약어
+        val_abbr = {
+            'strict': 'STR',
+            'balanced': 'BAL',
+            'lenient': 'LEN'
+        }
+        val_str = val_abbr.get(validation_mode, validation_mode[:3].upper())
+        
+        # 방별 처리 여부
+        room_str = 'ROOM' if process_by_room else 'BATCH'
+        
+        # 입력 데이터 식별 (Phase 0 파일명 또는 샘플)
+        if phase0_file.exists() and phase0_output != SAMPLE_PHASE0_OUTPUT:
+            input_str = phase0_file.stem[-6:]  # 마지막 6자리 타임스탬프
+        else:
+            input_str = 'SAMPLE'
+        
+        # 최종 파일명: phase1_모델조합_검증모드_처리방식_입력데이터_타임스탬프.json
+        output_file = output_dir / f"phase1_{models_str}_{val_str}_{room_str}_{input_str}_{timestamp}.json"
         
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(result, f, indent=2, ensure_ascii=False)
         
         print(f"\n결과가 저장되었습니다: {output_file}")
+        
+        # 테스트 구성 정보를 결과에 추가
+        result['test_config'] = {
+            'models_used': models_to_use,
+            'validation_mode': validation_mode,
+            'process_by_room': process_by_room,
+            'input_source': 'sample' if phase0_output == SAMPLE_PHASE0_OUTPUT else str(phase0_file),
+            'timestamp': timestamp
+        }
+        
+        # 다시 저장 (테스트 구성 정보 포함)
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(result, f, indent=2, ensure_ascii=False)
         
         # 결과 요약 출력
         if result.get('success'):
@@ -264,19 +309,7 @@ async def test_phase1_standalone():
                         for issue in info['issues']:
                             print(f"    - {issue}")
             
-            # Phase 2 준비
-            print("\n" + "=" * 80)
-            print("Phase 2 입력 데이터 준비")
-            print("=" * 80)
-            
-            phase2_input = processor.prepare_for_phase2(result)
-            phase2_file = output_dir / f"phase2_input_{timestamp}.json"
-            
-            with open(phase2_file, 'w', encoding='utf-8') as f:
-                json.dump(phase2_input, f, indent=2, ensure_ascii=False)
-            
-            print(f"Phase 2 입력 데이터 저장: {phase2_file}")
-            print("\nPhase 2를 실행하려면 test_phase2_standalone.py를 사용하세요.")
+            # Phase 2 입력 생성 제거 - 필요시 별도로 실행
             
         else:
             print("\n" + "=" * 80)

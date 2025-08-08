@@ -135,8 +135,8 @@ class Phase0Processor:
             
             self.logger.info(f"JSON 추출 성공: {type(merged_json)}")
             
-            # 5. 검증 및 정리
-            validated_json = self._validate_and_clean_output(merged_json)
+            # 5. 검증 및 정리 (intake_form 전달하여 프로젝트 정보 추출)
+            validated_json = self._validate_and_clean_output(merged_json, intake_form)
             
             # 6. 메타데이터 추가
             result = {
@@ -333,12 +333,45 @@ class Phase0Processor:
         self.logger.debug(f"전체 응답 (처음 1000자): {raw_response[:1000]}")
         raise ValueError("응답에서 유효한 JSON을 찾을 수 없습니다")
     
-    def _validate_and_clean_output(self, json_data: Any) -> Any:
+    def _extract_project_info_from_intake(self, intake_form: str) -> Dict[str, Any]:
+        """
+        Intake form 텍스트에서 프로젝트 정보 추출
+        
+        Args:
+            intake_form: 작업 범위 입력 양식 텍스트
+        
+        Returns:
+            추출된 프로젝트 정보
+        """
+        import re
+        
+        project_info = {
+            'Jobsite': '',
+            'occupancy': '',
+            'company': {}
+        }
+        
+        # Property Address 추출
+        address_match = re.search(r'Property Address:\s*(.+?)(?:\n|$)', intake_form)
+        if address_match:
+            project_info['Jobsite'] = address_match.group(1).strip()
+            self.logger.debug(f"Extracted Jobsite: {project_info['Jobsite']}")
+        
+        # Occupancy 추출
+        occupancy_match = re.search(r'Occupancy:\s*(.+?)(?:\n|$)', intake_form)
+        if occupancy_match:
+            project_info['occupancy'] = occupancy_match.group(1).strip()
+            self.logger.debug(f"Extracted Occupancy: {project_info['occupancy']}")
+        
+        return project_info
+    
+    def _validate_and_clean_output(self, json_data: Any, intake_form: str = None) -> Any:
         """
         생성된 JSON 검증 및 정리
         
         Args:
             json_data: 검증할 JSON 데이터
+            intake_form: 원본 intake form 텍스트 (프로젝트 정보 추출용)
         
         Returns:
             검증되고 정리된 JSON 데이터
@@ -353,6 +386,15 @@ class Phase0Processor:
         # 첫 번째 요소는 jobsite 정보
         jobsite_info = json_data[0]
         required_jobsite_keys = ['Jobsite', 'occupancy', 'company']
+        
+        # intake form에서 프로젝트 정보 추출 시도
+        if intake_form and (not jobsite_info.get('Jobsite') or not jobsite_info.get('occupancy')):
+            extracted_info = self._extract_project_info_from_intake(intake_form)
+            if extracted_info['Jobsite'] and not jobsite_info.get('Jobsite'):
+                jobsite_info['Jobsite'] = extracted_info['Jobsite']
+            if extracted_info['occupancy'] and not jobsite_info.get('occupancy'):
+                jobsite_info['occupancy'] = extracted_info['occupancy']
+        
         for key in required_jobsite_keys:
             if key not in jobsite_info:
                 jobsite_info[key] = "" if key != 'company' else {}

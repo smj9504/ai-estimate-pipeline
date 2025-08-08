@@ -1,0 +1,11 @@
+# Comprehensive testing configuration
+phase_numbers: [0, 1, 2]  # All implemented phases
+models: ["gpt4", "claude", "gemini"]
+validation_mode: "strict"
+process_by_room: true
+timeout_seconds: 600  # Longer timeout for comprehensive testing
+retry_attempts: 3
+save_outputs: true
+output_directory: "test_outputs"
+test_name: "comprehensive"
+description: "Comprehensive testing of all phases with strict validation"
