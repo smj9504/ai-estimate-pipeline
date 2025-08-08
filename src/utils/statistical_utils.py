@@ -23,11 +23,31 @@ class StatisticalProcessor:
     @staticmethod
     def remove_outliers_iqr(values: List[float], multiplier: float = 1.5) -> List[float]:
         """IQR 방식으로 아웃라이어 제거"""
+        # Type safety checks
+        if not values or not isinstance(values, (list, tuple)):
+            return []
+            
         if len(values) <= 2:
-            return values
+            return list(values)
         
-        lower_bound, upper_bound = StatisticalProcessor.calculate_iqr_bounds(values, multiplier)
-        return [v for v in values if lower_bound <= v <= upper_bound]
+        # Ensure all values are numeric
+        try:
+            numeric_values = [float(v) for v in values if isinstance(v, (int, float))]
+            if not numeric_values:
+                return []
+                
+            if len(numeric_values) <= 2:
+                return numeric_values
+                
+            lower_bound, upper_bound = StatisticalProcessor.calculate_iqr_bounds(numeric_values, multiplier)
+            filtered_values = [v for v in numeric_values if lower_bound <= v <= upper_bound]
+            
+            # If filtering removes all values, return original
+            return filtered_values if filtered_values else numeric_values
+            
+        except (ValueError, TypeError) as e:
+            # If there's any issue, return original values
+            return list(values)
     
     @staticmethod
     def calculate_z_scores(values: List[float]) -> List[float]:
@@ -55,13 +75,27 @@ class StatisticalProcessor:
     @staticmethod
     def weighted_average(values: List[float], weights: List[float]) -> float:
         """가중 평균 계산"""
-        if not values or not weights or len(values) != len(weights):
+        # Type safety checks
+        if not values or not isinstance(values, (list, tuple)):
             return 0.0
-        
-        if sum(weights) == 0:
+            
+        if not weights or not isinstance(weights, (list, tuple)):
+            return np.mean(values) if values else 0.0
+            
+        if len(values) != len(weights):
             return np.mean(values)
         
-        return np.average(values, weights=weights)
+        # Ensure all values are numeric
+        try:
+            numeric_values = [float(v) for v in values]
+            numeric_weights = [float(w) for w in weights]
+        except (ValueError, TypeError):
+            return np.mean([float(v) for v in values if isinstance(v, (int, float))])
+        
+        if sum(numeric_weights) == 0:
+            return np.mean(numeric_values)
+        
+        return np.average(numeric_values, weights=numeric_weights)
     
     @staticmethod
     def calculate_variance_metrics(values: List[float]) -> Dict[str, float]:
@@ -122,7 +156,14 @@ class StatisticalProcessor:
         
         trim_count = max(1, int(len(values) * trim_percent))
         sorted_values = sorted(values)
-        trimmed_values = sorted_values[trim_count:-trim_count] if trim_count < len(values)//2 else sorted_values
+        
+        # Fix slicing logic to prevent empty lists
+        if 2 * trim_count >= len(values):
+            # If trimming would remove all or most values, use original values
+            trimmed_values = sorted_values
+        else:
+            # Safe to trim
+            trimmed_values = sorted_values[trim_count:-trim_count]
         
         return np.mean(trimmed_values)
     

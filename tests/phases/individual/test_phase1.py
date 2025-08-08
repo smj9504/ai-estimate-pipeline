@@ -263,12 +263,31 @@ class Phase1Test(PhaseTestBase):
         if not result.get('success') or 'data' not in result:
             return 0
         
-        total_rooms = 0
-        for floor_data in result['data'][1:]:  # Skip jobsite_info
-            if 'rooms' in floor_data:
-                total_rooms += len(floor_data['rooms'])
+        data = result['data']
         
-        return total_rooms
+        # Handle different data structures
+        if isinstance(data, dict):
+            # Phase 1 merged result format
+            if 'rooms' in data:
+                return len(data['rooms'])
+            # Phase 0 format with floors
+            elif isinstance(data, list) and len(data) > 1:
+                total_rooms = 0
+                try:
+                    for floor_data in data[1:]:  # Skip jobsite_info
+                        if isinstance(floor_data, dict) and 'rooms' in floor_data:
+                            total_rooms += len(floor_data['rooms'])
+                except (TypeError, IndexError):
+                    return 0
+                return total_rooms
+        
+        # Fallback - try to find rooms anywhere in the data
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict) and 'rooms' in item:
+                    return len(item['rooms'])
+        
+        return 0
     
     def analyze_results(self, result: PhaseTestResult) -> Dict[str, Any]:
         """Enhanced analysis for Phase 1 results"""

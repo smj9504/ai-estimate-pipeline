@@ -358,20 +358,55 @@ class QuantitativeMerger:
     
     def _extract_quantities_for_task(self, task: Dict[str, Any]) -> List[Tuple[float, str]]:
         """작업에 대한 수량 데이터 추출"""
-        # 이 예제에서는 단순화했지만, 실제로는 여러 모델의 동일 작업에 대한 수량을 추출
-        quantity = task.get('quantity', 0)
-        model = task.get('model', '')
-        
-        if quantity > 0:
-            return [(quantity, model)]
-        else:
+        # Type safety checks
+        if not task or not isinstance(task, dict):
+            return []
+            
+        try:
+            quantity = task.get('quantity', 0)
+            model = task.get('model', '')
+            
+            # Ensure quantity is numeric
+            if isinstance(quantity, (int, float)) and quantity > 0:
+                return [(float(quantity), str(model))]
+            else:
+                return []
+                
+        except (ValueError, TypeError) as e:
+            self.logger.warning(f"Error extracting quantity from task: {e}")
             return []
     
     def _merge_quantity_values(self, quantities: List[Tuple[float, str]], 
                              supporting_models: List[str]) -> Tuple[float, Dict[str, Any]]:
         """수량 값들 병합"""
-        values = [q[0] for q in quantities]
-        models = [q[1] for q in quantities]
+        # Type safety checks
+        if not quantities or not isinstance(quantities, (list, tuple)):
+            return 0.0, {
+                'confidence': 'low',
+                'method': 'no_data',
+                'models': [],
+                'variance': 0.0
+            }
+        
+        try:
+            values = [float(q[0]) for q in quantities if len(q) >= 2 and isinstance(q[0], (int, float))]
+            models = [str(q[1]) for q in quantities if len(q) >= 2]
+        except (IndexError, TypeError, ValueError) as e:
+            self.logger.warning(f"Quantity extraction error: {e}")
+            return 0.0, {
+                'confidence': 'low',
+                'method': 'extraction_error',
+                'models': [],
+                'variance': 0.0
+            }
+        
+        if not values:
+            return 0.0, {
+                'confidence': 'low',
+                'method': 'no_valid_values',
+                'models': models,
+                'variance': 0.0
+            }
         
         if len(values) == 1:
             return values[0], {
@@ -387,8 +422,14 @@ class QuantitativeMerger:
         if not clean_values:
             clean_values = values  # 모든 값이 아웃라이어인 경우 원래 값 사용
         
-        # 가중 평균 계산
-        weights = [self._get_model_weight(model) for model in models[:len(clean_values)]]
+        # 가중 평균 계산 - 모델 수와 값 수를 맞춤
+        models_for_weights = models[:len(clean_values)] if len(models) > len(clean_values) else models
+        weights = [self._get_model_weight(model) for model in models_for_weights]
+        
+        # 가중치 수가 값 수와 맞지 않으면 균등 가중치 사용
+        if len(weights) != len(clean_values):
+            weights = [1.0] * len(clean_values)
+        
         merged_value = self.stats.weighted_average(clean_values, weights)
         
         # 안전 마진 적용
@@ -482,8 +523,22 @@ class ResultMerger:
     def _flatten_consensus_tasks(self, room_based_tasks: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
         """방별 작업을 플랫 리스트로 변환"""
         all_tasks = []
-        for room_tasks in room_based_tasks.values():
-            all_tasks.extend(room_tasks)
+        
+        if not room_based_tasks or not isinstance(room_based_tasks, dict):
+            return all_tasks
+            
+        try:
+            for room_name, room_tasks in room_based_tasks.items():
+                if isinstance(room_tasks, list):
+                    # Type-safe extension
+                    valid_tasks = [task for task in room_tasks if isinstance(task, dict)]
+                    all_tasks.extend(valid_tasks)
+                elif isinstance(room_tasks, dict):
+                    # Single task as dict
+                    all_tasks.append(room_tasks)
+        except (AttributeError, TypeError) as e:
+            self.logger.warning(f"Error flattening consensus tasks: {e}")
+            
         return all_tasks
     
     def _create_merged_estimate(self, model_responses: List[ModelResponse],
@@ -533,8 +588,26 @@ class ResultMerger:
             }
             rooms_data.append(room_data)
         
+        # Create a proper JobsiteInfo object
+        from src.models.data_models import JobsiteInfo
+        try:
+            # Create JobsiteInfo with proper fields
+            project_info = JobsiteInfo(
+                Jobsite="DMV Area - Merged Result",
+                occupancy="Residential",
+                company={"name": "Multi-Model AI Estimator"}
+            )
+        except Exception as e:
+            self.logger.warning(f"Error creating JobsiteInfo: {e}")
+            # Fallback to basic dict
+            project_info = {
+                'Jobsite': 'DMV Area - Merged Result',
+                'occupancy': 'Residential',
+                'company': {'name': 'Multi-Model AI Estimator'}
+            }
+        
         return MergedEstimate(
-            project_info={'merged': True},  # 실제로는 원본 프로젝트 정보
+            project_info=project_info,
             rooms=rooms_data,
             total_work_items=sum(len(tasks) for tasks in qualitative_result['merged_work_scope'].values()),
             overall_confidence=min(qualitative_result['consensus_level'], quantitative_result['overall_confidence']),
@@ -549,8 +622,17 @@ class ResultMerger:
     
     def _create_empty_result(self) -> MergedEstimate:
         """빈 결과 생성"""
+        from src.models.data_models import JobsiteInfo
+        
+        # Create empty JobsiteInfo with correct fields
+        empty_project_info = JobsiteInfo(
+            Jobsite="",
+            occupancy="",
+            company={}
+        )
+        
         return MergedEstimate(
-            project_info={},
+            project_info=empty_project_info,
             rooms=[],
             total_work_items=0,
             overall_confidence=0.0,
@@ -560,5 +642,11 @@ class ResultMerger:
                 confidence_level=ConfidenceLevel.LOW,
                 processing_time_total=0.0,
                 manual_review_required=True
-            )
+            ),
+            summary_stats={
+                'total_rooms': 0,
+                'models_used': 0,
+                'consensus_tasks': 0,
+                'safety_tasks': 0
+            }
         )

@@ -140,14 +140,22 @@ class AIModelInterface(ABC):
         # 프로젝트 데이터 구조인 경우 (Phase 0/1 형태)
         elif 'data' in data and isinstance(data['data'], list):
             project_data = data['data']
-            if len(project_data) > 1:
-                # floors 데이터에서 rooms 추출
-                for floor_data in project_data[1:]:
-                    if 'rooms' in floor_data:
-                        for room in floor_data['rooms']:
-                            processed_room = self._process_room_data(room)
-                            result['rooms'].append(processed_room)
-                            result['work_items'].extend(processed_room.get('tasks', []))
+            if isinstance(project_data, list) and len(project_data) > 1:
+                # floors 데이터에서 rooms 추출 - 안전한 슬라이싱
+                try:
+                    floor_data_list = project_data[1:] if len(project_data) > 1 else []
+                    for floor_data in floor_data_list:
+                        if isinstance(floor_data, dict) and 'rooms' in floor_data:
+                            rooms = floor_data['rooms']
+                            if isinstance(rooms, list):
+                                for room in rooms:
+                                    if isinstance(room, dict):
+                                        processed_room = self._process_room_data(room)
+                                        result['rooms'].append(processed_room)
+                                        result['work_items'].extend(processed_room.get('tasks', []))
+                except (IndexError, TypeError, AttributeError) as e:
+                    self.logger.warning(f"Error processing project data structure: {e}")
+                    # Continue with other processing methods
         
         # 직접 rooms 배열인 경우
         elif 'rooms' in data:
