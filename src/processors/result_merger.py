@@ -16,11 +16,13 @@ from src.utils.logger import get_logger
 class QualitativeMerger:
     """질적 데이터 병합 (작업 범위, 로직 적용)"""
     
-    def __init__(self, config):
+    def __init__(self, config, original_data=None, room_name_mapping=None):
         self.config = config
         self.text_processor = TextProcessor()
         self.logger = get_logger('qualitative_merger')
         self.consensus_threshold = config.consensus.minimum_agreement
+        self.original_data = original_data
+        self.room_name_mapping = room_name_mapping or {}
     
     def merge_work_scopes(self, model_responses: List[ModelResponse]) -> Dict[str, Any]:
         """작업 범위 병합"""
@@ -65,10 +67,19 @@ class QualitativeMerger:
             # work_items가 있는 경우 처리
             if hasattr(response, 'work_items') and response.work_items:
                 for item in response.work_items:
-                    # room_name 처리 개선
+                    # room_name 처리 개선 - 원본 데이터와 매핑
                     room_name = item.get('room_name', '')
                     if not room_name or room_name == 'Unknown':
-                        room_name = item.get('room', 'Unknown')
+                        room_name = item.get('room', '')
+                    
+                    # 원본 데이터에서 실제 room 이름 찾기
+                    if room_name and self.room_name_mapping:
+                        mapped_name = self._find_best_room_match(room_name)
+                        if mapped_name:
+                            room_name = mapped_name
+                    
+                    if not room_name:
+                        room_name = 'Unknown'
                     
                     # reasoning 처리 개선
                     reasoning = item.get('reasoning', '')
@@ -89,7 +100,16 @@ class QualitativeMerger:
             
             # rooms 구조 처리
             for room in rooms:
-                room_name = room.get('name', 'Unknown')
+                room_name = room.get('name', '')
+                
+                # 원본 데이터에서 실제 room 이름 찾기
+                if room_name and self.room_name_mapping:
+                    mapped_name = self._find_best_room_match(room_name)
+                    if mapped_name:
+                        room_name = mapped_name
+                
+                if not room_name:
+                    room_name = 'Unknown'
                 tasks = room.get('tasks', [])
                 
                 # work_items가 있는 경우
@@ -123,6 +143,48 @@ class QualitativeMerger:
         
         self.logger.info(f"전체 작업 항목 수집: {len(all_tasks)}개")
         return all_tasks
+    
+    def _build_room_name_mapping(self, original_data) -> Dict[str, str]:
+        """원본 데이터에서 room 이름 매핑 테이블 생성"""
+        room_mapping = {}
+        
+        if not original_data:
+            return room_mapping
+        
+        try:
+            # ProjectData 객체인 경우
+            if hasattr(original_data, 'floors'):
+                for floor in original_data.floors:
+                    for room in floor.rooms:
+                        room_name = room.name
+                        # 다양한 변형을 매핑에 추가
+                        room_mapping[room_name.lower()] = room_name
+                        room_mapping[room_name.lower().replace(' ', '')] = room_name
+                        
+            # JSON list 형태인 경우
+            elif isinstance(original_data, (list, tuple)):
+                for floor_data in original_data[1:]:  # 첫 번째는 jobsite_info
+                    if isinstance(floor_data, dict) and 'rooms' in floor_data:
+                        for room_data in floor_data['rooms']:
+                            room_name = room_data.get('name', '')
+                            if room_name:
+                                room_mapping[room_name.lower()] = room_name
+                                room_mapping[room_name.lower().replace(' ', '')] = room_name
+                                
+            # Dict 형태인 경우
+            elif isinstance(original_data, dict):
+                if 'floors' in original_data:
+                    for floor_data in original_data['floors']:
+                        for room_data in floor_data.get('rooms', []):
+                            room_name = room_data.get('name', '')
+                            if room_name:
+                                room_mapping[room_name.lower()] = room_name
+                                room_mapping[room_name.lower().replace(' ', '')] = room_name
+                                
+        except Exception as e:
+            self.logger.warning(f"Error building room name mapping: {e}")
+            
+        return room_mapping
     
     def _group_similar_tasks(self, all_tasks: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
         """유사한 작업들을 그룹핑"""
@@ -318,6 +380,48 @@ class QualitativeMerger:
                 outlier_tasks.append(group_key)
         
         return outlier_tasks
+    
+    def _find_best_room_match(self, ai_room_name: str) -> Optional[str]:
+        """AI 응답의 room 이름과 원본 데이터의 room 이름을 매칭"""
+        if not ai_room_name or not self.room_name_mapping:
+            return None
+            
+        ai_name_lower = ai_room_name.lower()
+        
+        # 정확한 매칭 시도
+        if ai_name_lower in self.room_name_mapping:
+            return self.room_name_mapping[ai_name_lower]
+            
+        # 공백 제거 후 매칭 시도
+        ai_name_no_space = ai_name_lower.replace(' ', '')
+        if ai_name_no_space in self.room_name_mapping:
+            return self.room_name_mapping[ai_name_no_space]
+            
+        # 부분 매칭 시도 (포함 관계)
+        for mapped_key, original_name in self.room_name_mapping.items():
+            if ai_name_lower in mapped_key or mapped_key in ai_name_lower:
+                return original_name
+                
+        # 키워드 기반 매칭
+        room_keywords = {
+            'living': ['living', 'family', 'great'],
+            'kitchen': ['kitchen', 'kit'],
+            'bathroom': ['bathroom', 'bath', 'toilet'],
+            'bedroom': ['bedroom', 'bed', 'master'],
+            'dining': ['dining', 'din'],
+            'basement': ['basement', 'base', 'lower'],
+            'rec': ['rec', 'recreation', 'family']
+        }
+        
+        ai_words = ai_name_lower.split()
+        for category, keywords in room_keywords.items():
+            if any(word in ai_words for word in keywords):
+                # 해당 카테고리의 방 찾기
+                for mapped_key, original_name in self.room_name_mapping.items():
+                    if any(keyword in mapped_key for keyword in keywords):
+                        return original_name
+                        
+        return None
 
 class QuantitativeMerger:
     """정량적 데이터 병합 (수량, 비용)"""
@@ -479,7 +583,7 @@ class QuantitativeMerger:
 class ResultMerger:
     """전체 결과 병합 관리자"""
     
-    def __init__(self, config=None):
+    def __init__(self, config=None, original_data=None):
         if config is None:
             # config가 없으면 새로 로드
             self.config_loader = ConfigLoader()
@@ -489,9 +593,53 @@ class ResultMerger:
             self.config = config
             self.config_loader = ConfigLoader()
         
-        self.qualitative_merger = QualitativeMerger(self.config)
+        self.original_data = original_data  # 원본 입력 데이터 저장
+        self.room_name_mapping = self._build_room_name_mapping(original_data) if original_data else {}
+        self.qualitative_merger = QualitativeMerger(self.config, original_data, self.room_name_mapping)
         self.quantitative_merger = QuantitativeMerger(self.config)
         self.logger = get_logger('result_merger')
+    
+    def _build_room_name_mapping(self, original_data) -> Dict[str, str]:
+        """원본 데이터에서 room 이름 매핑 테이블 생성"""
+        room_mapping = {}
+        
+        if not original_data:
+            return room_mapping
+        
+        try:
+            # ProjectData 객체인 경우
+            if hasattr(original_data, 'floors'):
+                for floor in original_data.floors:
+                    for room in floor.rooms:
+                        room_name = room.name
+                        # 다양한 변형을 매핑에 추가
+                        room_mapping[room_name.lower()] = room_name
+                        room_mapping[room_name.lower().replace(' ', '')] = room_name
+                        
+            # JSON list 형태인 경우
+            elif isinstance(original_data, (list, tuple)):
+                for floor_data in original_data[1:]:  # 첫 번째는 jobsite_info
+                    if isinstance(floor_data, dict) and 'rooms' in floor_data:
+                        for room_data in floor_data['rooms']:
+                            room_name = room_data.get('name', '')
+                            if room_name:
+                                room_mapping[room_name.lower()] = room_name
+                                room_mapping[room_name.lower().replace(' ', '')] = room_name
+                                
+            # Dict 형태인 경우
+            elif isinstance(original_data, dict):
+                if 'floors' in original_data:
+                    for floor_data in original_data['floors']:
+                        for room_data in floor_data.get('rooms', []):
+                            room_name = room_data.get('name', '')
+                            if room_name:
+                                room_mapping[room_name.lower()] = room_name
+                                room_mapping[room_name.lower().replace(' ', '')] = room_name
+                                
+        except Exception as e:
+            self.logger.warning(f"Error building room name mapping: {e}")
+            
+        return room_mapping
     
     def merge_results(self, model_responses: List[ModelResponse]) -> MergedEstimate:
         """전체 결과 병합"""
@@ -547,6 +695,13 @@ class ResultMerger:
                               processing_time: float) -> MergedEstimate:
         """최종 병합 결과 생성"""
         
+        # 프롬프트 버전 추출 (모든 모델이 동일한 버전 사용)
+        prompt_version = None
+        for response in model_responses:
+            if hasattr(response, 'prompt_version') and response.prompt_version:
+                prompt_version = response.prompt_version
+                break
+        
         # 메타데이터 생성
         metadata = MergeMetadata(
             models_used=[r.model_name for r in model_responses],
@@ -557,6 +712,7 @@ class ResultMerger:
                 'quantity_confidence': quantitative_result['overall_confidence']
             },
             outlier_flags=qualitative_result['outlier_tasks'],
+            prompt_version=prompt_version,  # 프롬프트 버전 추가
             processing_time_total=processing_time,
             confidence_level=calculate_confidence_level(qualitative_result['consensus_level']),
             manual_review_required=qualitative_result['consensus_level'] < 0.6,
@@ -588,23 +744,49 @@ class ResultMerger:
             }
             rooms_data.append(room_data)
         
-        # Create a proper JobsiteInfo object
+        # Create JobsiteInfo from original data or fallback
         from src.models.data_models import JobsiteInfo
         try:
-            # Create JobsiteInfo with proper fields
+            # Extract project info from original data if available
+            if self.original_data and hasattr(self.original_data, 'jobsite_info'):
+                # From ProjectData object
+                original_jobsite = self.original_data.jobsite_info
+                project_info = JobsiteInfo(
+                    Jobsite=original_jobsite.Jobsite or "AI Estimate Project",
+                    occupancy=original_jobsite.occupancy or "Residential",
+                    company=original_jobsite.company or {"name": "Multi-Model AI Estimator"}
+                )
+            elif self.original_data and isinstance(self.original_data, (list, tuple)) and len(self.original_data) > 0:
+                # From JSON list format
+                jobsite_data = self.original_data[0] if isinstance(self.original_data[0], dict) else {}
+                project_info = JobsiteInfo(
+                    Jobsite=jobsite_data.get('Jobsite', 'AI Estimate Project'),
+                    occupancy=jobsite_data.get('occupancy', 'Residential'),
+                    company=jobsite_data.get('company', {"name": "Multi-Model AI Estimator"})
+                )
+            elif self.original_data and isinstance(self.original_data, dict):
+                # From dict format
+                jobsite_data = self.original_data.get('jobsite_info', self.original_data)
+                project_info = JobsiteInfo(
+                    Jobsite=jobsite_data.get('Jobsite', 'AI Estimate Project'),
+                    occupancy=jobsite_data.get('occupancy', 'Residential'),
+                    company=jobsite_data.get('company', {"name": "Multi-Model AI Estimator"})
+                )
+            else:
+                # Fallback to default values
+                project_info = JobsiteInfo(
+                    Jobsite="AI Estimate Project",
+                    occupancy="Residential",
+                    company={"name": "Multi-Model AI Estimator"}
+                )
+        except Exception as e:
+            self.logger.warning(f"Error creating JobsiteInfo from original data: {e}")
+            # Fallback to default JobsiteInfo
             project_info = JobsiteInfo(
-                Jobsite="DMV Area - Merged Result",
-                occupancy="Residential",
+                Jobsite="AI Estimate Project",
+                occupancy="Residential", 
                 company={"name": "Multi-Model AI Estimator"}
             )
-        except Exception as e:
-            self.logger.warning(f"Error creating JobsiteInfo: {e}")
-            # Fallback to basic dict
-            project_info = {
-                'Jobsite': 'DMV Area - Merged Result',
-                'occupancy': 'Residential',
-                'company': {'name': 'Multi-Model AI Estimator'}
-            }
         
         return MergedEstimate(
             project_info=project_info,

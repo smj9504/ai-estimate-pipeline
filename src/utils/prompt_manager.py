@@ -127,22 +127,20 @@ class PromptManager:
                 # Phase 정보로 시스템 프롬프트 변수 치환
                 phase_descriptions = {
                     0: "Generate Scope of Work Data",
-                    1: "Merge Measurement & Work Scope",
-                    2: "Quantity Survey",
-                    3: "Market Research",
-                    4: "Timeline & Disposal Calculation",
-                    5: "Final Estimate Completion",
-                    6: "Formatting to JSON"
+                    1: "Work Scope & Quantity Calculation",
+                    2: "Market Research & Pricing",
+                    3: "Timeline & Disposal Calculation",
+                    4: "Final Estimate Completion",
+                    5: "Formatting to JSON"
                 }
                 
                 phase_instruction = {
                     0: "Combine measurement, demolition, and intake form data into a unified JSON format.",
-                    1: "Merge measurements with work scope requirements. Apply Remove & Replace logic.",
-                    2: "Calculate detailed quantities for all work items based on measurements and scope.",
-                    3: "Research current material and labor costs specific to the DMV area.",
-                    4: "Estimate project timeline and calculate disposal costs.",
-                    5: "Compile comprehensive estimate with all costs and details.",
-                    6: "Format final estimate to client-required JSON structure."
+                    1: "Determine work scope, calculate quantities with waste factors, and apply Remove & Replace logic.",
+                    2: "Research current material and labor costs specific to the DMV area with insurance pricing strategy.",
+                    3: "Estimate project timeline and calculate disposal costs.",
+                    4: "Compile comprehensive estimate with all costs and details.",
+                    5: "Format final estimate to client-required JSON structure."
                 }
                 
                 system_prompt = system_prompt.replace(

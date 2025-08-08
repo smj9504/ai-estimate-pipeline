@@ -105,6 +105,11 @@ class WorkItem(BaseModel):
     unit: str = ""
     reasoning: str = ""
     room_name: str = ""
+    # Waste factor 관련 필드 추가
+    waste_factor: Optional[float] = None  # 퍼센트 (예: 10.0 = 10%)
+    quantity_with_waste: Optional[float] = None  # waste 포함 수량
+    waste_amount: Optional[float] = None  # waste 양
+    material_type: Optional[str] = None  # 재료 타입 (drywall, paint, etc.)
     
 class ModelResponse(BaseModel):
     model_name: str
@@ -114,6 +119,7 @@ class ModelResponse(BaseModel):
     validation_checklist: Dict[str, bool] = Field(default_factory=dict)
     confidence_self_assessment: float = 0.0
     raw_response: str = ""
+    prompt_version: Optional[str] = None  # 프롬프트 버전 추가
 
 # 병합 결과 메타데이터
 class MergeMetadata(BaseModel):
@@ -125,6 +131,7 @@ class MergeMetadata(BaseModel):
     confidence_level: ConfidenceLevel
     manual_review_required: bool = False
     safety_margin_applied: float = 0.0
+    prompt_version: Optional[str] = None  # 프롬프트 버전 추가
 
 # 최종 병합 결과
 class MergedEstimate(BaseModel):
@@ -142,6 +149,10 @@ class MergedEstimate(BaseModel):
         "total_sqft_ceiling": 0,
         "high_ceiling_rooms": 0
     })
+    
+    # Waste 관련 필드 추가
+    waste_summary: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    waste_factors_applied: bool = False
 
 # 설정 모델
 class ModelWeights(BaseModel):

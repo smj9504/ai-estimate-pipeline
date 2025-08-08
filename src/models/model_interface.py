@@ -441,55 +441,14 @@ class AIModelInterface(ABC):
                         task['quantity'] = qty_value
     
     def _log_model_response(self, model_name: str, raw_response: str, response_time: float):
-        """AI 모델 응답을 파일과 콘솔에 로깅"""
+        """AI 모델 응답을 로그에 기록"""
         import os
         from datetime import datetime
         
-        # 디렉토리 생성
-        debug_dir = "ai_responses"
-        os.makedirs(debug_dir, exist_ok=True)
+        # 기본 정보 로깅
+        self.logger.info(f"{model_name} response received - Time: {response_time:.2f}s, Size: {len(raw_response)} chars")
         
-        # 타임스탬프 생성
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
-        # 파일명 생성
-        clean_name = model_name.lower().replace('-', '_').replace(' ', '_')
-        debug_file = f"{debug_dir}/{clean_name}_response_{timestamp}.txt"
-        
-        # 파일에 저장
-        with open(debug_file, 'w', encoding='utf-8') as f:
-            f.write(f"{model_name} Response\n")
-            f.write(f"처리 시간: {response_time:.2f}초\n")
-            f.write(f"응답 크기: {len(raw_response)} characters\n")
-            f.write("="*80 + "\n")
-            f.write(raw_response)
-            f.write("\n" + "="*80 + "\n")
-            
-            # JSON 파싱 시도
-            try:
-                import json
-                parsed = self._try_parse_json(raw_response)
-                if parsed:
-                    f.write("\n[Parsed JSON Structure]\n")
-                    f.write(json.dumps(parsed, indent=2, ensure_ascii=False)[:5000])  # 처음 5000자만
-            except:
-                pass
-        
-        # 콘솔에 요약 출력
-        print(f"\n" + "="*80)
-        print(f"[RESPONSE] {model_name} AI 응답 수신")
-        print(f"[TIME] 처리 시간: {response_time:.2f}초")
-        print(f"[SIZE] 응답 크기: {len(raw_response)} characters")
-        print(f"[SAVE] 저장 위치: {debug_file}")
-        
-        # 응답 미리보기 (처음 500자)
-        preview = raw_response[:500]
-        if len(raw_response) > 500:
-            preview += "... (truncated)"
-        print(f"\n[응답 미리보기]\n{preview}")
-        print("="*80 + "\n")
-        
-        # 작업 개수 확인
+        # 작업 개수 확인 및 로깅
         try:
             data = self._extract_response_data(raw_response)
             work_items = data.get('work_items', [])
@@ -502,14 +461,43 @@ class AIModelInterface(ABC):
                     total_tasks += len(room.get('tasks', []))
             
             if total_tasks == 0:
-                print(f"[WARNING] 경고: {model_name}에서 작업이 생성되지 않았습니다!")
                 self.logger.warning(f"{model_name} generated 0 tasks")
             else:
-                print(f"[SUCCESS] {model_name}: {total_tasks}개 작업 생성")
-                self.logger.info(f"{model_name} generated {total_tasks} tasks")
+                self.logger.info(f"{model_name} generated {total_tasks} tasks successfully")
         except Exception as e:
-            print(f"[WARNING] 작업 개수 파싱 실패: {e}")
-            self.logger.error(f"Failed to parse task count: {e}")
+            self.logger.error(f"Failed to parse task count from {model_name}: {e}")
+        
+        # 디버그 파일 저장 (환경 변수로 제어)
+        if os.getenv('SAVE_DEBUG_RESPONSES', 'false').lower() == 'true':
+            try:
+                debug_dir = os.getenv('DEBUG_RESPONSES_DIR', 'ai_responses')
+                os.makedirs(debug_dir, exist_ok=True)
+                
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                clean_name = model_name.lower().replace('-', '_').replace(' ', '_')
+                debug_file = f"{debug_dir}/{clean_name}_response_{timestamp}.txt"
+                
+                with open(debug_file, 'w', encoding='utf-8') as f:
+                    f.write(f"{model_name} Response\n")
+                    f.write(f"처리 시간: {response_time:.2f}초\n")
+                    f.write(f"응답 크기: {len(raw_response)} characters\n")
+                    f.write("="*80 + "\n")
+                    f.write(raw_response)
+                    f.write("\n" + "="*80 + "\n")
+                    
+                    # JSON 파싱 시도
+                    try:
+                        import json
+                        parsed = self._try_parse_json(raw_response)
+                        if parsed:
+                            f.write("\n[Parsed JSON Structure]\n")
+                            f.write(json.dumps(parsed, indent=2, ensure_ascii=False)[:5000])
+                    except:
+                        pass
+                
+                self.logger.debug(f"Debug response saved to: {debug_file}")
+            except Exception as e:
+                self.logger.error(f"Failed to save debug response: {e}")
 
 class GPT4Interface(AIModelInterface):
     """GPT-4 인터페이스"""
@@ -881,7 +869,8 @@ class ModelOrchestrator:
         
         self.logger.info(f"총 {len(self.models)}개 모델 사용 가능, 검증 {'활성화' if self.enable_validation else '비활성화'}")
     
-    async def run_single_model(self, model_name: str, prompt: str, json_data: Dict[str, Any]) -> Optional[ModelResponse]:
+    async def run_single_model(self, model_name: str, prompt: str, json_data: Dict[str, Any], 
+                              prompt_version: Optional[str] = None) -> Optional[ModelResponse]:
         """단일 모델 실행"""
         if model_name not in self.models:
             self.logger.warning(f"모델 {model_name}을 사용할 수 없습니다. (API 키 확인)")
@@ -890,6 +879,9 @@ class ModelOrchestrator:
         try:
             self.logger.debug(f"모델 {model_name} 실행 시작")
             result = await self.models[model_name].call_model(prompt, json_data)
+            # 프롬프트 버전 추가
+            if result and prompt_version:
+                result.prompt_version = prompt_version
             self.logger.debug(f"모델 {model_name} 실행 완료")
             return result
         except Exception as e:
@@ -900,7 +892,8 @@ class ModelOrchestrator:
     async def run_parallel(self, prompt: str, json_data: Dict[str, Any], 
                           model_names: List[str] = None,
                           enable_validation: Optional[bool] = None,
-                          min_quality_threshold: float = 30.0) -> List[ModelResponse]:
+                          min_quality_threshold: float = 30.0,
+                          prompt_version: Optional[str] = None) -> List[ModelResponse]:
         """여러 모델 병렬 실행 with enhanced validation"""
         if model_names is None:
             model_names = list(self.models.keys())
@@ -917,9 +910,9 @@ class ModelOrchestrator:
         
         self.logger.info(f"모델 병렬 실행 시작: {available_models} (검증: {'ON' if enable_validation else 'OFF'})")
         
-        # 병렬 실행
+        # 병렬 실행 (프롬프트 버전 포함)
         tasks = [
-            self.run_single_model(model_name, prompt, json_data)
+            self.run_single_model(model_name, prompt, json_data, prompt_version)
             for model_name in available_models
         ]
         

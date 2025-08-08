@@ -9,12 +9,14 @@ This is a **Multi-model AI system for residential reconstruction estimates** tha
 ## Project Development Status
 
 ### Phase Implementation Status
-- **Phase 1: Merge Measurement & Work Scope** ✅ **완료**
-- **Phase 2: Quantity Survey (멀티모델 적용)** ✅ **완료**
-- **Phase 3: Market Research** ⏳ **다음 구현 예정**
-- **Phase 4: Timeline & Disposal Calculation** ⏳ **다음 구현 예정**
-- **Phase 5: Final Estimate Completion** ⏳ **다음 구현 예정**
-- **Phase 6: Formatting to JSON** ⏳ **다음 구현 예정**
+- **Phase 1: Work Scope & Quantity Calculation (통합)** ✅ **완료**
+  - 작업 범위 결정 + 수량 계산 + Waste Factor 적용
+- **Phase 2: Market Research & Pricing** ✅ **구현 완료**
+  - 보험 최적화 가격 전략 (60-75th percentile)
+  - Material/Labor 분리 및 세금 계산
+- **Phase 3: Timeline & Disposal Calculation** ⏳ **다음 구현 예정**
+- **Phase 4: Final Estimate Completion** ⏳ **다음 구현 예정**
+- **Phase 5: Formatting to JSON** ⏳ **다음 구현 예정**
 
 ### Current System Performance
 - **Processing Time**: 2-5 seconds (3 models parallel execution)
