@@ -74,6 +74,8 @@ Examples:
         single_parser.add_argument('--timeout', type=int, default=300,
                                  help='Timeout per phase in seconds')
         single_parser.add_argument('--test-name', help='Custom test name')
+        single_parser.add_argument('--prompt-version', 
+                                 help='Prompt version to use (improved, fast, etc.)')
         
         # Pipeline command
         pipeline_parser = subparsers.add_parser('pipeline', help='Run multiple phases in sequence')
@@ -148,7 +150,8 @@ Examples:
                     validation_mode=args.validation_mode,
                     timeout_seconds=args.timeout,
                     test_name=args.test_name or f"cli_phase{args.phase}",
-                    description=f"CLI test of Phase {args.phase}"
+                    description=f"CLI test of Phase {args.phase}",
+                    prompt_version=args.prompt_version  # 프롬프트 버전 추가
                 )
             
             result = await self.orchestrator.run_single_phase(args.phase, config)

@@ -31,7 +31,8 @@ class Phase1Processor:
     async def process(self,
                      phase0_output: Dict[str, Any],
                      models_to_use: List[str] = None,
-                     project_id: Optional[str] = None) -> Dict[str, Any]:
+                     project_id: Optional[str] = None,
+                     prompt_version: Optional[str] = None) -> Dict[str, Any]:
         """
         Phase 1 실행 - 멀티모델로 측정값과 작업 범위 병합
         
@@ -39,6 +40,7 @@ class Phase1Processor:
             phase0_output: Phase 0의 출력 (Generate Scope of Work 결과)
             models_to_use: 사용할 AI 모델 리스트
             project_id: 프로젝트 ID
+            prompt_version: 사용할 프롬프트 버전 ('improved', 'fast', None=기본)
         
         Returns:
             병합된 측정값과 작업 범위 데이터
@@ -63,11 +65,19 @@ class Phase1Processor:
                 'location': 'DMV area'
             }
             
-            # Phase 1 improved 프롬프트 사용
+            # 프롬프트 버전 결정 (설정 가능)
+            # prompt_version: None(기본), 'improved', 'fast', 기타 커스텀 버전
+            effective_version = prompt_version or self.config.get('prompt_version')
+            
+            if effective_version:
+                print(f"프롬프트 버전: {effective_version}")
+            else:
+                print("프롬프트 버전: 기본 버전 사용")
+            
             base_prompt = self.prompt_manager.load_prompt_with_variables(
                 phase_number=1,
                 variables=prompt_variables,
-                version='improved'  # improved 버전 사용
+                version=effective_version  # 동적 버전 선택
             )
             
             # 2. 멀티모델 병렬 실행

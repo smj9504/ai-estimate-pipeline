@@ -244,6 +244,32 @@ python run_phase_tests.py pipeline --phases 0 1 2 --models gpt4 claude
 python run_phase_tests.py compare --phase 1 --models gpt4 claude --compare-type models
 ```
 
+#### 프롬프트 버전 선택 기능 🚀
+
+`--prompt-version` 플래그를 사용하여 성능과 품질에 따른 프롬프트 버전을 선택할 수 있습니다:
+
+```bash
+# 기본 버전 사용 (안정적, 균형 잡힌 성능)
+python run_phase_tests.py single --phase 1 --models gpt4
+
+# 빠른 버전 사용 (성능 최적화 - 30-60초)
+python run_phase_tests.py single --phase 1 --models gpt4 --prompt-version fast
+
+# 개선된 버전 사용 (고품질 - 2-4분, 95%+ 정확도)
+python run_phase_tests.py single --phase 1 --models gpt4 --prompt-version improved
+
+# 커스텀 버전 사용
+python run_phase_tests.py single --phase 1 --models gpt4 --prompt-version v2
+```
+
+**프롬프트 버전별 특징**:
+
+| 버전 | 처리 시간 | 품질 | 사용 케이스 |
+|------|----------|------|-------------|
+| **fast** | 30-60초 | 85% | 빠른 테스트, 개발 환경 |
+| **기본** | 60-120초 | 90% | 일반적인 운영 환경 |
+| **improved** | 120-240초 | 95%+ | 고품질 요구, 최종 검토 |
+
 **사용 가능한 모델 조합**:
 
 | 선택 | 명령어 예시 | 설명 |

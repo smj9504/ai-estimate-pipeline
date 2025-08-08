@@ -20,7 +20,7 @@ class AIModelInterface(ABC):
         self.api_key = api_key
         self.model_name = model_name
         self.max_retries = 3
-        self.timeout = 90  # 90초로 증가 (방별 처리 시 더 많은 시간 필요)
+        self.timeout = 300  # 5분으로 증가 (improved 프롬프트 처리 시간 고려)
         self.logger = get_logger(self.__class__.__name__)
     
     @abstractmethod
@@ -531,6 +531,7 @@ class GPT4Interface(AIModelInterface):
             self.logger.info("GPT-4 API 호출 시작 (Structured Output Mode)")
             self.logger.debug(f"프롬프트 크기: {len(full_prompt)} characters")
             log_model_call(self.actual_model_name, len(full_prompt))
+            self.logger.info("⏳ OpenAI API 요청 전송 중... (복잡한 JSON 스키마 처리로 2-4분 소요 예상)")
             
             # Structured Output JSON 스키마 정의 - Phase 1: Work Scope Only (NO COSTS)
             response_format = {
@@ -561,17 +562,14 @@ class GPT4Interface(AIModelInterface):
                                                     "task_id": {"type": "string"},
                                                     "task_name": {"type": "string"},
                                                     "task_type": {
-                                                        "type": "string",
-                                                        "enum": ["removal", "installation", "protection", "detach", "reset", "preparation", "cleaning", "disposal", "finishing", "repair", "other"]
+                                                        "type": "string"
                                                     },
                                                     "material_category": {
-                                                        "type": "string",
-                                                        "enum": ["flooring", "wall", "ceiling", "baseboard", "other"]
+                                                        "type": "string"
                                                     },
                                                     "quantity": {"type": "number"},
                                                     "unit": {
-                                                        "type": "string",
-                                                        "enum": ["sqft", "lf", "sy", "item", "hour", "each"]
+                                                        "type": "string"
                                                     },
                                                     "notes": {"type": "string"},
                                                     "high_ceiling_premium_applied": {"type": "boolean"},
@@ -641,7 +639,7 @@ class GPT4Interface(AIModelInterface):
                     ],
                     response_format=response_format,
                     max_tokens=8000,
-                    temperature=0.1,
+                    temperature=0.0,  # 더 빠른 처리를 위해 0.0 설정
                     timeout=self.timeout
                 )
                 
@@ -659,7 +657,7 @@ class GPT4Interface(AIModelInterface):
                         {"role": "user", "content": full_prompt}
                     ],
                     max_tokens=8000,
-                    temperature=0.1,
+                    temperature=0.0,  # 더 빠른 처리를 위해 0.0 설정
                     timeout=self.timeout
                 )
                 

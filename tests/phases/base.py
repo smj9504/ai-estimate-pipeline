@@ -27,6 +27,7 @@ class PhaseTestConfig:
     output_directory: str = "test_outputs"
     test_name: str = ""
     description: str = ""
+    prompt_version: Optional[str] = None  # 프롬프트 버전 선택
     
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

@@ -214,7 +214,8 @@ class Phase1Test(PhaseTestBase):
             result = await processor.process(
                 phase0_output=input_data,
                 models_to_use=test_config.models,
-                project_id=input_data.get('project_id', f"TEST_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+                project_id=input_data.get('project_id', f"TEST_{datetime.now().strftime('%Y%m%d_%H%M%S')}"),
+                prompt_version=test_config.prompt_version  # 프롬프트 버전 전달
             )
             
             execution_time = (datetime.now() - start_time).total_seconds()
