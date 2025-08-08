@@ -18,7 +18,6 @@ class PipelineTestConfig:
     phases: List[int]  # Phase numbers to run
     models: List[str]  # AI models to use
     validation_mode: str = "balanced"
-    process_by_room: bool = True
     continue_on_failure: bool = False  # Whether to continue if a phase fails
     save_intermediate: bool = True  # Save outputs between phases
     timeout_per_phase: int = 300  # Timeout per phase in seconds
@@ -75,7 +74,6 @@ class PhaseTestOrchestrator:
                 phase_numbers=pipeline_config.phases,
                 models=pipeline_config.models,
                 validation_mode=pipeline_config.validation_mode,
-                process_by_room=pipeline_config.process_by_room,
                 test_name=pipeline_config.test_name,
                 description=pipeline_config.description
             ),
@@ -99,7 +97,6 @@ class PhaseTestOrchestrator:
                     phase_numbers=[phase_num],
                     models=pipeline_config.models,
                     validation_mode=pipeline_config.validation_mode,
-                    process_by_room=pipeline_config.process_by_room,
                     timeout_seconds=pipeline_config.timeout_per_phase,
                     save_outputs=pipeline_config.save_intermediate,
                     test_name=f"{pipeline_config.test_name}_phase{phase_num}"

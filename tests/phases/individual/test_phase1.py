@@ -36,11 +36,11 @@ class Phase1Test(PhaseTestBase):
         if self.cached_input_data:
             return self.cached_input_data
         
+        # Load most recent Phase 0 output, create sample if none exists
         try:
-            # Try to load from existing Phase 0 output
             return await self._load_phase0_output()
         except FileNotFoundError:
-            # Fall back to sample data
+            self.logger.warning("No Phase 0 output found, using sample data")
             return self._create_sample_phase0_output()
     
     async def _load_phase0_output(self) -> Dict[str, Any]:
@@ -187,11 +187,17 @@ class Phase1Test(PhaseTestBase):
                 return False
             
             for room in floor_data['rooms']:
-                required_room_keys = ['name', 'materials', 'work_scope', 'measurements']
+                required_room_keys = ['name', 'work_scope', 'measurements']
+                # Check for materials or material key (Phase 0 outputs use 'material')
+                has_materials = 'materials' in room or 'material' in room
                 for key in required_room_keys:
                     if key not in room:
                         self.logger.error(f"Room missing required key: {key}")
                         return False
+                
+                if not has_materials:
+                    self.logger.error("Room missing required key: materials/material")
+                    return False
         
         return True
     
@@ -208,8 +214,7 @@ class Phase1Test(PhaseTestBase):
             result = await processor.process(
                 phase0_output=input_data,
                 models_to_use=test_config.models,
-                project_id=input_data.get('project_id', f"TEST_{datetime.now().strftime('%Y%m%d_%H%M%S')}"),
-                process_by_room=test_config.process_by_room
+                project_id=input_data.get('project_id', f"TEST_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
             )
             
             execution_time = (datetime.now() - start_time).total_seconds()
@@ -237,7 +242,6 @@ class Phase1Test(PhaseTestBase):
                 metadata={
                     'models_used': test_config.models,
                     'validation_mode': test_config.validation_mode,
-                    'process_by_room': test_config.process_by_room,
                     'rooms_processed': self._count_rooms_processed(result)
                 }
             )

@@ -2,7 +2,6 @@
 phase_numbers: [1]
 models: ["gpt4", "claude"]
 validation_mode: "balanced"  # Will be overridden in comparison tests
-process_by_room: true
 timeout_seconds: 300
 retry_attempts: 2
 save_outputs: true

@@ -11,7 +11,7 @@ from datetime import datetime
 from dataclasses import dataclass, asdict
 
 from src.utils.config_loader import ConfigLoader
-from src.utils.logger import Logger
+from src.utils.logger import get_logger
 from ..utils.test_data_loader import TestDataLoader
 
 
@@ -21,7 +21,6 @@ class PhaseTestConfig:
     phase_numbers: List[int]
     models: List[str]
     validation_mode: str = "balanced"
-    process_by_room: bool = True
     timeout_seconds: int = 300
     retry_attempts: int = 2
     save_outputs: bool = True
@@ -90,9 +89,9 @@ class PhaseTestBase(ABC):
     """Base class for all phase tests"""
     
     def __init__(self, config_path: Optional[str] = None):
-        self.config_loader = ConfigLoader()
-        self.config = self.config_loader.load_config(config_path)
-        self.logger = Logger(__name__)
+        self.config_loader = ConfigLoader(config_path)
+        self.config = self.config_loader.load_config()
+        self.logger = get_logger(__name__)
         self.test_data_loader = TestDataLoader()  # Use new centralized data loader
         self.test_data_dir = Path(__file__).parent / "fixtures"  # Keep for backward compatibility
         self.output_dir = Path("test_outputs")

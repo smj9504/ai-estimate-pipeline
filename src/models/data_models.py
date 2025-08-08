@@ -82,13 +82,19 @@ class ProjectData(BaseModel):
     @classmethod
     def from_json_list(cls, json_list: List[Dict[str, Any]]) -> 'ProjectData':
         """JSON 리스트에서 ProjectData 객체 생성"""
+        # 타입 검증 추가
+        if not isinstance(json_list, (list, tuple)):
+            raise TypeError(f"json_list must be a list or tuple, got {type(json_list).__name__}")
+        
         if len(json_list) < 2:
             raise ValueError("JSON list must contain at least jobsite info and one floor")
         
-        jobsite_info = JobsiteInfo(**json_list[0])
-        floors = [Floor(**floor_data) for floor_data in json_list[1:]]
-        
-        return cls(jobsite_info=jobsite_info, floors=floors)
+        try:
+            jobsite_info = JobsiteInfo(**json_list[0])
+            floors = [Floor(**floor_data) for floor_data in json_list[1:]]
+            return cls(jobsite_info=jobsite_info, floors=floors)
+        except (TypeError, KeyError) as e:
+            raise ValueError(f"Invalid data structure in json_list: {e}")
 
 # AI 모델 응답 데이터 구조
 class WorkItem(BaseModel):

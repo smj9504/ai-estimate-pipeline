@@ -36,11 +36,11 @@ class Phase2Test(PhaseTestBase):
         if self.cached_input_data:
             return self.cached_input_data
         
+        # Load most recent Phase 1 output, create sample if none exists
         try:
-            # Try to load from existing Phase 1 output
             return await self._load_phase1_output()
         except FileNotFoundError:
-            # Fall back to sample data
+            self.logger.warning("No Phase 1 output found, using sample data")
             return self._create_sample_phase1_output()
     
     async def _load_phase1_output(self) -> Dict[str, Any]:

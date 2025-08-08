@@ -14,7 +14,7 @@ from tests.phases.cli import PhaseTestCLI
 
 def main():
     """Main entry point for phase testing"""
-    print("🧪 AI Estimate Pipeline - Phase Testing Framework")
+    print("AI Estimate Pipeline - Phase Testing Framework")
     print("=" * 55)
     
     if len(sys.argv) == 1:

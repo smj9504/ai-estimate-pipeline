@@ -209,7 +209,7 @@ pytest -v
 프로젝트는 체계적인 Phase 테스트 구조를 제공합니다:
 
 ```bash
-# Phase 1 단독 테스트
+# Phase 1 단독 테스트 (기본: 전체 모델)
 python run_phase_tests.py single --phase 1
 
 # 전체 파이프라인 테스트 (Phase 0→1→2)
@@ -217,6 +217,50 @@ python run_phase_tests.py pipeline --phases 0 1 2
 
 # 모델 조합 비교 테스트
 python run_phase_tests.py compare --phase 1 --compare-type models
+```
+
+#### AI 모델 선택 기능 ✨
+
+각 테스트 명령어에서 `--models` 플래그를 사용하여 원하는 AI 모델 조합을 선택할 수 있습니다:
+
+```bash
+# 단일 모델 테스트
+python run_phase_tests.py single --phase 1 --models gpt4
+python run_phase_tests.py single --phase 1 --models claude
+python run_phase_tests.py single --phase 1 --models gemini
+
+# 두 모델 조합 테스트
+python run_phase_tests.py single --phase 1 --models gpt4 claude
+python run_phase_tests.py single --phase 1 --models claude gemini
+python run_phase_tests.py single --phase 1 --models gpt4 gemini
+
+# 전체 모델 테스트 (명시적 지정)
+python run_phase_tests.py single --phase 1 --models gpt4 claude gemini
+
+# 파이프라인에서 모델 선택
+python run_phase_tests.py pipeline --phases 0 1 2 --models gpt4 claude
+
+# 모델 비교 테스트에서 특정 모델들만 비교
+python run_phase_tests.py compare --phase 1 --models gpt4 claude --compare-type models
+```
+
+**사용 가능한 모델 조합**:
+
+| 선택 | 명령어 예시 | 설명 |
+|------|------------|------|
+| **GPT-4 단독** | `--models gpt4` | OpenAI GPT-4만 사용 |
+| **Claude 단독** | `--models claude` | Anthropic Claude만 사용 |
+| **Gemini 단독** | `--models gemini` | Google Gemini만 사용 |
+| **GPT+Claude** | `--models gpt4 claude` | 2모델 조합 |
+| **Claude+Gemini** | `--models claude gemini` | 2모델 조합 |
+| **GPT+Gemini** | `--models gpt4 gemini` | 2모델 조합 |
+| **전체 모델** | `--models gpt4 claude gemini` | 3모델 조합 (기본값) |
+
+**도움말 확인**:
+```bash
+python run_phase_tests.py single --help  # 단일 Phase 테스트 옵션
+python run_phase_tests.py pipeline --help  # 파이프라인 테스트 옵션
+python run_phase_tests.py compare --help   # 비교 테스트 옵션
 ```
 
 #### 테스트 데이터 구조

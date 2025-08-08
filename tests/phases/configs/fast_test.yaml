@@ -2,7 +2,6 @@
 phase_numbers: [1]
 models: ["gpt4"]  # Single model for speed
 validation_mode: "balanced"
-process_by_room: false  # Batch processing for speed
 timeout_seconds: 120
 retry_attempts: 1
 save_outputs: true

@@ -1,7 +1,6 @@
 """
 Phase 0 Test Implementation - Generate Scope of Work
 """
-import asyncio
 from datetime import datetime
 from typing import Dict, Any
 
@@ -22,71 +21,15 @@ class Phase0Test(PhaseTestBase):
     
     async def prepare_test_data(self, test_config: PhaseTestConfig) -> Dict[str, Any]:
         """Prepare test data for Phase 0"""
-        try:
-            # Try to load from existing test data
-            measurement_data = self.load_fixture("sample_measurement")
-            demolition_data = self.load_fixture("sample_demo") 
-            intake_form = self.load_fixture("sample_intake_form")
-            
-            return {
-                'measurement_data': measurement_data,
-                'demolition_scope_data': demolition_data,
-                'intake_form': intake_form,
-                'project_id': f"TEST_PHASE0_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            }
-        except FileNotFoundError:
-            # Fall back to sample data
-            return self._create_sample_data()
-    
-    def _create_sample_data(self) -> Dict[str, Any]:
-        """Create sample test data when fixtures are not available"""
+        # Always use test_data fixtures directly
+        measurement_data = self.load_fixture("sample_measurement")
+        demolition_data = self.load_fixture("sample_demo") 
+        intake_form = self.load_fixture("sample_intake_form")
+        
         return {
-            'measurement_data': [
-                {
-                    "floor_name": "First Floor",
-                    "rooms": [
-                        {
-                            "name": "Living Room",
-                            "dimensions": {
-                                "width": 16,
-                                "length": 20,
-                                "height": 9
-                            },
-                            "features": {
-                                "windows": 3,
-                                "doors": 2,
-                                "fireplace": 1
-                            }
-                        },
-                        {
-                            "name": "Kitchen",
-                            "dimensions": {
-                                "width": 12,
-                                "length": 14,
-                                "height": 9
-                            },
-                            "features": {
-                                "windows": 2,
-                                "doors": 1,
-                                "cabinets": "standard"
-                            }
-                        }
-                    ]
-                }
-            ],
-            'demolition_scope_data': {
-                "completed_demolition": [
-                    {
-                        "room": "Living Room",
-                        "items": ["Old carpet - 320 sq ft", "Damaged drywall - 150 sq ft"]
-                    },
-                    {
-                        "room": "Kitchen", 
-                        "items": ["Old cabinets - 6 units", "Countertop - 25 sq ft"]
-                    }
-                ]
-            },
-            'intake_form': "Residential reconstruction project following water damage. Client requests modern finishes with focus on durability. Budget range: $50,000-75,000. Timeline: 8-10 weeks.",
+            'measurement_data': measurement_data,
+            'demolition_scope_data': demolition_data,
+            'intake_form': intake_form,
             'project_id': f"TEST_PHASE0_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         }
     

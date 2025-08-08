@@ -940,12 +940,12 @@ class ModelOrchestrator:
                     if validation_report.is_valid and validation_report.quality_score >= min_quality_threshold:
                         successful_results.append(validated_response)
                         self.logger.info(
-                            f"✓ {model_name} - {validation_report.quality_level.value.upper()} "
+                            f"OK {model_name} - {validation_report.quality_level.value.upper()} "
                             f"({validation_report.quality_score:.1f}/100, {result.total_work_items}개 작업)"
                         )
                     else:
                         self.logger.warning(
-                            f"✗ {model_name} - 품질 기준 미달 "
+                            f"FAIL {model_name} - 품질 기준 미달 "
                             f"({validation_report.quality_score:.1f}/100, "
                             f"{len(validation_report.issues)}개 이슈)"
                         )
@@ -953,13 +953,13 @@ class ModelOrchestrator:
                     # Fallback to basic validation (legacy behavior)
                     if result.total_work_items > 0 or (result.room_estimates and len(result.room_estimates) > 0):
                         successful_results.append(result)
-                        self.logger.info(f"✓ {model_name} 모델 성공 (작업 {result.total_work_items}개)")
+                        self.logger.info(f"OK {model_name} 모델 성공 (작업 {result.total_work_items}개)")
                     else:
                         error_msg = result.raw_response[:200] if isinstance(result.raw_response, str) else "빈 응답"
-                        self.logger.warning(f"✗ {model_name} 모델 응답 비어있음: {error_msg}")
+                        self.logger.warning(f"FAIL {model_name} 모델 응답 비어있음: {error_msg}")
             
             elif isinstance(result, Exception):
-                self.logger.error(f"✗ {model_name} 모델 실행 중 예외: {result}")
+                self.logger.error(f"FAIL {model_name} 모델 실행 중 예외: {result}")
         
         # Log validation summary
         if enable_validation and validation_reports:

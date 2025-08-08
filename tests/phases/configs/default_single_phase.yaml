@@ -2,7 +2,6 @@
 phase_numbers: [1]  # Can be overridden
 models: ["gpt4", "claude", "gemini"]
 validation_mode: "balanced"
-process_by_room: true
 timeout_seconds: 300
 retry_attempts: 2
 save_outputs: true

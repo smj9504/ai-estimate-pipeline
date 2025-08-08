@@ -132,22 +132,22 @@ def print_stats(args, tracker, reporter):
     )
     
     if stats["summary"]["total_requests"] == 0:
-        print("📊 No usage data found for the specified criteria.")
+        print("[STATS] No usage data found for the specified criteria.")
         return
     
     summary = stats["summary"]
     period = stats["period"]
     
-    print(f"📊 Usage Statistics ({period['start'][:10]} to {period['end'][:10]})")
+    print(f"[STATS] Usage Statistics ({period['start'][:10]} to {period['end'][:10]})")
     print("=" * 80)
-    print(f"🔢 Total Requests: {format_number(summary['total_requests'])}")
-    print(f"✅ Successful: {format_number(summary['successful_requests'])} ({summary['success_rate']:.1%})")
-    print(f"🎯 Total Tokens: {format_number(summary['total_tokens'])}")
-    print(f"💰 Total Cost: {format_currency(summary['total_cost'])}")
-    print(f"⏱️  Average Time: {summary['avg_processing_time']:.2f}s")
+    print(f"Total Requests: {format_number(summary['total_requests'])}")
+    print(f"Successful: {format_number(summary['successful_requests'])} ({summary['success_rate']:.1%})")
+    print(f"Total Tokens: {format_number(summary['total_tokens'])}")
+    print(f"Total Cost: {format_currency(summary['total_cost'])}")
+    print(f"Average Time: {summary['avg_processing_time']:.2f}s")
     
     if args.detailed or len(stats["breakdown"]["by_model"]) <= 5:
-        print(f"\n📋 By Model:")
+        print(f"\n[MODELS] By Model:")
         for model, data in stats["breakdown"]["by_model"].items():
             success_rate = f"{data['success_rate']:.1%}" if 'success_rate' in data else "N/A"
             print(f"  • {model[:35]:<35} | {format_number(data['requests']):>6} reqs | "
